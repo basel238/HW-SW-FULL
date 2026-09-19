@@ -40,8 +40,21 @@ source "$HERE/lib/common.sh"
 source "$HERE/lib/pipeline.sh"
 
 BENCH_NAME="nbody"
-BASELINE="$HERE/bench/bm_nbody.py"
-OPTIMIZED="$HERE/variants/bm_nbody_opt.py"
+# Workload selection. USE_UPSTREAM=1 (the default) measures the REAL
+# pyperformance kernel, imported unmodified from upstream/. USE_UPSTREAM=0
+# measures the independently written stand-in kept for comparison.
+if [[ "${USE_UPSTREAM:-1}" == "1" ]]; then
+  BASELINE="$HERE/bench/bm_nbody_upstream.py"
+  OPTIMIZED="$HERE/variants/bm_nbody_upstream_opt.py"
+  WORKLOAD_KIND="UPSTREAM pyperformance kernel (unmodified)"
+  [[ -f "$HERE/upstream/bm_nbody_upstream.py" ]] || die \
+    "upstream kernel missing -> run ./setup/05_get_upstream.sh
+     (or set USE_UPSTREAM=0 to measure the custom stand-in instead)"
+else
+  BASELINE="$HERE/bench/bm_nbody.py"
+  OPTIMIZED="$HERE/variants/bm_nbody_opt.py"
+  WORKLOAD_KIND="custom stand-in (NOT the upstream benchmark)"
+fi
 
 pipeline_parse_args "$@" || { pipeline_usage "$BENCH_NAME"; exit 2; }
 [[ "${PIPELINE_HELP:-0}" == "1" ]] && { pipeline_usage "$BENCH_NAME"; exit 0; }
@@ -56,8 +69,9 @@ mkdir -p "$RESULTS_DIR"
 
 hdr "nbody — HWSW benchmark analysis pipeline"
 log "variant selection : $VARIANT_SEL"
-log "baseline          : bench/bm_nbody.py"
-log "optimized         : variants/bm_nbody_opt.py"
+log "workload          : $WORKLOAD_KIND"
+log "baseline          : ${BASELINE#$HERE/}"
+log "optimized         : ${OPTIMIZED#$HERE/}"
 
 if [[ "$VARIANT_SEL" == "baseline" || "$VARIANT_SEL" == "both" ]]; then
   run_variant "$BENCH_NAME" "baseline" "$BASELINE"

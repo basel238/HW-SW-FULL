@@ -36,12 +36,19 @@ ROUNDS="${2:-11}"
 case "${3:-}" in --shuffle) SHUFFLE=1 ;; *) SHUFFLE=0 ;; esac
 
 case "$BENCH" in
-  raytrace) BASE="$REPO_ROOT/bench/bm_raytrace.py"
-            OPT="$REPO_ROOT/variants/bm_raytrace_opt.py" ;;
-  nbody)    BASE="$REPO_ROOT/bench/bm_nbody.py"
-            OPT="$REPO_ROOT/variants/bm_nbody_opt.py" ;;
+  raytrace|nbody) ;;
   *) die "unknown benchmark '$BENCH' (expected raytrace or nbody)" ;;
 esac
+# Same workload selection as the deliverable scripts.
+if [[ "${USE_UPSTREAM:-1}" == "1" ]]; then
+  BASE="$REPO_ROOT/bench/bm_${BENCH}_upstream.py"
+  OPT="$REPO_ROOT/variants/bm_${BENCH}_upstream_opt.py"
+  log "workload: UPSTREAM pyperformance kernel"
+else
+  BASE="$REPO_ROOT/bench/bm_${BENCH}.py"
+  OPT="$REPO_ROOT/variants/bm_${BENCH}_opt.py"
+  log "workload: custom stand-in"
+fi
 [[ -f "$BASE" && -f "$OPT" ]] || die "benchmark sources missing"
 
 OUT="$RESULTS_DIR/abtiming_${BENCH}_$(date +%Y%m%d-%H%M%S)"

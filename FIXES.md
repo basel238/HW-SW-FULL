@@ -266,3 +266,188 @@ ENABLE_PYSPY=0               # perf is the deliverable
 3. **Shadow rays are unbounded by light distance** in both raytracers — an
    object beyond the light can occlude it. Shared by baseline and optimized, so
    it does not affect the comparison, but it is a model limitation.
+
+---
+
+# Round 2 — remaining review items
+
+### R1 — counters were not normalized per unit of work  [same class as M1]
+
+`counters.txt` compared raw `instructions` / `cycles` totals across runs that
+may have different loop counts. The review had to hand-normalize its §4 table.
+
+**Fix:** a per-work table divided by `loops.txt`, refusing to print if the loop
+counts are unknown. Verified against the saved data — reproduces the review's
+figures exactly (`instructions −59.50 %`, `cycles −61.93 %`).
+
+Also added: a **multiplexing confidence column**. Events counted for <40 % of
+the period are flagged `<- VERY LOW` with an explicit warning not to build a
+causal argument on them. perf has already scaled these values, so they are
+**not** scaled again.
+
+### R2 — topdown output with negative percentages was interpreted
+
+Observed: `bad speculation -73.0%`, which is arithmetically impossible.
+
+**Fix:** topdown output containing negative percentages is **rejected** with an
+explicit note, rather than being handed to the reader as a bottleneck story.
+
+### R3 — README quoted numbers from a different machine
+
+`~60 %` / `~17 %` came from development runs on macOS, not from any artifact in
+`results/`.
+
+**Fix:** README now states one identified result set (the VM runs) with exact
+figures, separates time reduction from throughput gain, reports per-work
+counters, and carries the upstream-port caveat (real upstream nbody: ~3.5 %).
+
+### R4 — cProfile call counts were not normalized
+
+cProfile runs `loops/10`, so its totals are not comparable across variants.
+
+**Fix:** loop count recorded to `cprofile_<variant>_loops.txt` and prepended as
+a header to the profile itself, with the division instruction and a reminder
+that cProfile timing is inflated 2–5×.
+
+### R5 — the numpy "Measured: slower" claim had no retained evidence
+
+**Fix:** restated as reasoning rather than measurement, and explicitly notes
+that no benchmark for it is retained in the repository.
+
+### R6 — unpinned dependencies and a moving FlameGraph checkout
+
+**Fix:** `pyperformance==1.14.0` pinned (the version that produced `results/`),
+`pip freeze` written to `requirements.lock.txt`, FlameGraph cloned in full with
+its commit recorded and pinnable via `FLAMEGRAPH_COMMIT`.
+
+### R7 — manifest recorded requested, not effective, settings
+
+`PIN_CPU=1` was recorded on a 1-vCPU host where `build_pin()` clamps to 0.
+
+**Fix:** manifest records `requested=` and `effective=`, plus the sampling mode,
+period, event, and unwind settings actually in force.
+
+### R8 — sequential A/B could not separate the effect from host drift
+
+**Fix:** new `tools/ab_timing.sh` runs the two variants **interleaved**
+(A/B/A/B, optionally shuffled), forces an identical loop count on both arms,
+and reports a **bootstrap 95 % confidence interval** over 20 000 resamples plus
+a paired within-round analysis.
+
+The decision rule is stricter than before: the **entire CI** must clear 7 %, not
+just the point estimate. A point estimate above the bar with a CI straddling it
+is reported as `INCONCLUSIVE`.
+
+Validated live:
+
+```
+baseline   n=5  median/unit 0.048147  rel sd 0.63%
+optimized  n=5  median/unit 0.039885  rel sd 0.62%
+SPEEDUP 1.2071x   TIME REDUCTION 17.16%
+95% CI (bootstrap) [16.19%, 17.95%]      VERDICT: PASS
+paired within-round: mean 17.04% (sd 0.79), all rounds agree in sign
+```
+
+---
+
+## Still outstanding after round 2
+
+1. **Upstream raytrace port** — not done. This is the item that decides whether
+   two benchmarks clear the bar, since upstream nbody manages only ~3.5 %.
+2. **Report sections 5–6** — hardware proposal and conclusions.
+3. **Ablations for the custom raytrace variant** — the nbody port has
+   `--mode ablate`; the raytrace optimizations have not been separated, so the
+   62.62 % cannot yet be attributed to individual edits.
+4. **Shadow rays unbounded by light distance** in both raytracers — shared by
+   baseline and optimized, so the comparison is unaffected.
+
+---
+
+# Round 3 — measuring the REAL pyperformance benchmarks
+
+## The problem this closes
+
+Every headline number produced before this round came from `bench/bm_*.py` —
+**independently written stand-ins**, not the approved benchmarks. Phase 6 ran
+the genuine `pyperformance` harness, but only on the baseline, so it never
+entered the before/after comparison. The external review identified workload
+substitution as the single largest compliance risk, and it was correct.
+
+## What was added
+
+| File | Role |
+|---|---|
+| `upstream/bm_raytrace_upstream.py` | the REAL kernel, verbatim |
+| `upstream/bm_nbody_upstream.py` | the REAL kernel, verbatim |
+| `upstream/PROVENANCE.txt` | package version + sha256 per file |
+| `bench/bm_raytrace_upstream.py` | baseline wrapper (CLI only) |
+| `bench/bm_nbody_upstream.py` | baseline wrapper (CLI only) |
+| `variants/bm_raytrace_upstream_opt.py` | optimization slot — **passthrough** |
+| `variants/bm_nbody_upstream_opt.py` | optimization slot, with `--mode ablate` |
+| `setup/05_get_upstream.sh` | extracts kernels from the pinned package |
+
+The wrappers import the upstream files **unmodified** via `importlib` and add
+only the `raw/calibrate/verify` CLI. Nothing in the measured kernel is ours.
+
+A minimal `pyperf` stub is injected so the upstream files import without the
+venv — `pyperf.perf_counter` *is* `time.perf_counter`, so this changes no
+timing semantics and keeps the upstream source byte-identical.
+
+## The switch
+
+`USE_UPSTREAM=1` (the new default) points `script_*.sh`, `ab_timing.sh` and
+`doctor.sh` at the upstream wrappers. `USE_UPSTREAM=0` restores the stand-ins
+for comparison. `doctor.sh` now prints which workload is selected and hard-fails
+if the upstream kernels are missing.
+
+## Why the upstream nbody result differs so much
+
+Upstream's inner loop already destructures coordinates in the `for` target:
+
+```python
+for (([x1, y1, z1], v1, m1), ([x2, y2, z2], v2, m2)) in pairs:
+```
+
+Coordinates are already locals and masses already bound. The custom baseline had
+added `bodies[i]` / `p1[0]` subscripting that upstream never had — so the
+flatten/hoist optimization was largely removing work **the custom baseline
+itself introduced**. Measured ablation on the genuine kernel:
+
+```
+upstream (control)   1.0000x    0.00%
+sqrt  (pow->sqrt)    1.0360x    3.47%
+hoist (subscripts)   0.9886x   -1.15%   <- SLOWER
+full                 1.0247x    2.47%
+```
+
+An index-based rewrite was also tried and came out **7% slower**: building the
+index lists per call costs more than it saves.
+
+## Upstream raytrace: passthrough for now, and why that is correct
+
+`variants/bm_raytrace_upstream_opt.py` currently applies **no optimizations**.
+A comparison today must report ~1.00x — a measurable difference would indicate
+harness bias, not speed. The file documents seven specific optimization
+opportunities found by reading the upstream source (`[H1]`–`[H7]`), the largest
+being:
+
+- `isPoint()` / `mustBeVector()` called on essentially every arithmetic
+  operation — Python-level calls that return a constant and compute nothing
+- a fresh list plus 8 tuples allocated per ray in `rayColour()`
+- `try/finally` around every ray purely to track recursion depth
+
+Upstream carries **more** interpreter overhead than the stand-in (7 spheres,
+two lights, a Point/Vector type split), so the ceiling should be higher, not
+lower.
+
+## Verified
+
+All eight workloads pass `--mode verify`. The upstream raytrace passthrough is
+bit-identical to its baseline at 24×24, **100×100 (measured)** and 37×23.
+
+## Still outstanding
+
+1. **Optimizations on the upstream kernels** — deliberately deferred.
+2. **Report sections 5–6** — hardware proposal and conclusions.
+3. `perf_event_paranoid` resets to a blocking value on reboot; persist it via
+   `/etc/sysctl.d/99-perf.conf` or kernel frames stay unresolved.

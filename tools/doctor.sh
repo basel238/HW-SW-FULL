@@ -30,6 +30,15 @@ chk "python3 ($PY_REL)"  "command -v $PY_REL"              hard "sudo ./setup/01
 chk "perf"               "command -v perf"                 hard "sudo ./setup/01_install_deps.sh"
 chk "perf can count"     "perf stat -e task-clock true"     hard "sudo ./setup/03_tune_vm.sh"
 chk "benchmark sources"  "[[ -f $REPO_ROOT/bench/bm_raytrace.py && -f $REPO_ROOT/bench/bm_nbody.py ]]" hard "repo is incomplete"
+if [[ "${USE_UPSTREAM:-1}" == "1" ]]; then
+  chk "upstream kernels"   "[[ -f $REPO_ROOT/upstream/bm_raytrace_upstream.py && -f $REPO_ROOT/upstream/bm_nbody_upstream.py ]]" hard \
+      "run ./setup/05_get_upstream.sh (or set USE_UPSTREAM=0)"
+  chk "upstream provenance" "[[ -f $REPO_ROOT/upstream/PROVENANCE.txt ]]" soft \
+      "version/sha256 record missing -> re-run ./setup/05_get_upstream.sh"
+  printf '  %-34s %sUPSTREAM%s (real pyperformance kernels)\n' "measured workload" "$C_G" "$C_RST"
+else
+  printf '  %-34s %sCUSTOM%s (stand-ins, NOT upstream)\n' "measured workload" "$C_Y" "$C_RST"
+fi
 chk "optimized variants" "[[ -f $REPO_ROOT/variants/bm_raytrace_opt.py && -f $REPO_ROOT/variants/bm_nbody_opt.py ]]" hard "repo is incomplete"
 
 hdr "preflight — optional (phase will be skipped if absent)"
@@ -138,12 +147,23 @@ else
 fi
 
 hdr "functional self-test (fast)"
-for pair in "bench/bm_raytrace.py:baseline raytrace" \
-            "bench/bm_nbody.py:baseline nbody" \
-            "variants/bm_raytrace_opt.py:optimized raytrace" \
-            "variants/bm_nbody_opt.py:optimized nbody"; do
+if [[ "${USE_UPSTREAM:-1}" == "1" ]]; then
+  SELFTEST=("bench/bm_raytrace_upstream.py:upstream raytrace"
+            "bench/bm_nbody_upstream.py:upstream nbody"
+            "variants/bm_raytrace_upstream_opt.py:optimized raytrace"
+            "variants/bm_nbody_upstream_opt.py:optimized nbody")
+else
+  SELFTEST=("bench/bm_raytrace.py:baseline raytrace"
+            "bench/bm_nbody.py:baseline nbody"
+            "variants/bm_raytrace_opt.py:optimized raytrace"
+            "variants/bm_nbody_opt.py:optimized nbody")
+fi
+for pair in "${SELFTEST[@]}"; do
   f="${pair%%:*}"; label="${pair##*:}"
-  if out="$("$PY_REL" "$REPO_ROOT/$f" --mode verify 2>&1)"; then
+  VARGS=(--mode verify)
+  [[ "$f" == *nbody_upstream* ]] && VARGS+=(--iterations 2000)
+  [[ "$f" == *raytrace_upstream* ]] && VARGS+=(--width 24 --height 24)
+  if out="$("$PY_REL" "$REPO_ROOT/$f" "${VARGS[@]}" 2>&1)"; then
     printf '  %-34s %sOK%s\n' "verify $label" "$C_G" "$C_RST"
   else
     printf '  %-34s %sFAIL%s\n' "verify $label" "$C_R" "$C_RST"
