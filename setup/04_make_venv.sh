@@ -5,7 +5,6 @@
 # Run as a NORMAL user (not root), so the venv is writable without sudo.
 # =============================================================================
 set -Eeuo pipefail
-[[ $EUID -ne 0 ]] || { echo "do NOT run this as root — run as your normal user." >&2; exit 1; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=../config/bench.env

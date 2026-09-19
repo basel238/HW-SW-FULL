@@ -1,0 +1,17 @@
+py-spy> Sampling process 999 times a second. Press Control-C to exit.
+
+py-spy> 1.01s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 1.79s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 2.59s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 3.39s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 4.18s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 4.99s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 5.76s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 6.55s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+resolution=100x100 loops=16 max_depth=3
+elapsed=8.342346 s  521.397 ms/frame
+primary_rays=160000  19.18 kray/s
+RESULT total_sec=8.342346 loops=16 ms_per_frame=521.3966 krays_per_sec=19.1793
+
+py-spy> Stopped sampling because process exited
+py-spy> Wrote flamegraph data to '/root/HW-SW-FULL/results/raytrace_baseline_20260919-145318/flame/baseline_pyspy.svg'. Samples: 1748 Errors: 35

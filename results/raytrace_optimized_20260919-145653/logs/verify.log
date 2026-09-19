@@ -1,0 +1,3 @@
+verify: OK  32x32 checksum=839ca29741962ce6 pixels=3072
+cross-check vs baseline: BIT-IDENTICAL (sha256 match)
+fp_mode=exact division (bit-identical)

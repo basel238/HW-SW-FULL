@@ -1,0 +1,9 @@
+==============================================================================
+ SYMBOL-LEVEL DELTA (self overhead %, sampled profile)
+==============================================================================
+Note: percentages are shares of each profile, so they sum to ~100 in
+both columns. A symbol dropping to 0.00 means it was eliminated.
+
+symbol                                            base%     opt%     delta
+------------------------------------------------------------------------------
+

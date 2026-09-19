@@ -1,0 +1,11 @@
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+perf_event__synthesize_bpf_events: failed to synthesize bpf images: No such file or directory
+Couldn't synthesize bpf events.
+resolution=100x100 loops=5 max_depth=3
+elapsed=3.276679 s  655.336 ms/frame
+primary_rays=50000  15.26 kray/s
+RESULT total_sec=3.276679 loops=5 ms_per_frame=655.3357 krays_per_sec=15.2594
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.019 MB /root/HW-SW-FULL/results/raytrace_baseline_20260919-145318/perf/baseline.data ]

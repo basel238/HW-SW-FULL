@@ -1,0 +1,4 @@
+resolution=100x100 loops=1 max_depth=3
+elapsed=0.674120 s  674.120 ms/frame
+primary_rays=10000  14.83 kray/s
+RESULT total_sec=0.674120 loops=1 ms_per_frame=674.1201 krays_per_sec=14.8342

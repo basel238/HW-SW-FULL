@@ -1,0 +1,2 @@
+elapsed=2.589553 s  517.911 ms/simulation
+RESULT total_sec=2.589553 loops=5 ms_per_sim=517.9106 energy=-0.169089263 ksteps_per_sec=38.6167

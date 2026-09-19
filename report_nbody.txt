@@ -1,0 +1,449 @@
+[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
+[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
+===============================================================================
+ REPORT — nbody
+ HW/SW Co-design (00460882) — Benchmark Optimization, Analysis,
+                              and Hardware Acceleration
+===============================================================================
+ Generated : 2026-09-19T15:03:17Z
+ Commit    : 327c9dc
+ Host      : Linux 5.15.0-1106-kvm x86_64 | Ubuntu 22.04.5 LTS
+ Generator : tools/gen_report.sh (measured sections are auto-filled; analysis
+             sections marked [TODO] require your own writing)
+===============================================================================
+
+
+1. OVERVIEW
+-------------------------------------------------------------------------------
+1.1 Purpose
+Gravitational n-body simulation of the Sun plus the four Jovian planets (Jupiter, Saturn, Uranus, Neptune), integrated with a symplectic (velocity-Verlet family) scheme for 20000 timesteps. Reports total system energy.
+
+1.2 Libraries used
+Standard library only: math.sqrt in the optimized variant; the baseline uses the ** operator. NO third-party dependencies.
+
+1.3 Data structures
+Baseline: each body is a 3-tuple (position list, velocity list, mass float); the system is a list of those tuples; body pairs are precomputed as a list of (i,j) index tuples.
+Optimized: state is flattened into seven parallel flat lists (xs, ys, zs, vxs, vys, vzs, ms), and the pair list carries pre-resolved masses as (i, j, m_i, m_j).
+
+1.4 Algorithms
+advance(dt): for each of the 10 unordered body pairs, compute the separation vector, its squared magnitude, and the inverse-cube-law factor dt*d2^-1.5; apply equal and opposite momentum changes to both bodies; then integrate all positions. O(n^2) per timestep with n=5. report_energy() sums kinetic and pairwise potential energy and is the conservation-based correctness oracle.
+
+1.5 Why this benchmark was selected
+  * raytrace and nbody are both FP/compute-bound, which makes the interpreter
+    overhead versus useful arithmetic ratio directly measurable with perf stat.
+  * They fail in COMPLEMENTARY ways: raytrace is allocation- and
+    branch-heavy (object protocol overhead, unpredictable control flow), while
+    nbody is allocation-free and branch-free (pure bytecode dispatch over a
+    working set that fits in L1). Optimizing both therefore exercises two
+    distinct bottleneck classes rather than the same one twice.
+  * Both have exact correctness oracles (image checksum / energy conservation),
+    so no optimization can silently trade accuracy for speed.
+
+
+2. INITIAL ANALYSIS (BASELINE)
+-------------------------------------------------------------------------------
+2.1 Measurement methodology
+
+  Profilers perturb what they measure, so this project separates phases and
+  never quotes a number taken from an instrumented run:
+
+    phase 1  verify         correctness gate (hard fail)
+    phase 2  clean timing   NO profiler attached      <-- QUOTED NUMBERS
+    phase 3  perf stat      counting mode, ~1% ovh    IPC / cache / branches
+    phase 4  perf record    sampling, high ovh        flame graphs only
+    phase 5  cProfile       tracing, 2-5x ovh         exact call counts only
+    phase 6  pyperformance  upstream harness          citable mean +- stdev
+
+  Noise control: single-CPU pinning via taskset, PYTHONHASHSEED fixed,
+  cyclic GC disabled during the timed region, ASLR disabled, CPU governor set
+  to performance where the platform exposes it. Reported statistic is the
+  MEDIAN over 7 independent processes, with relative standard
+  deviation reported so the reader can judge whether the result is solid.
+
+  Sampling frequency is 999 Hz (deliberately not a round 1000 Hz, to
+  avoid lock-stepping with periodic kernel timers and with the benchmark's own
+  loop boundaries). Call graphs use dwarf unwinding because stock CPython
+  is compiled with -fomit-frame-pointer, so frame-pointer unwinding yields
+  truncated stacks.
+
+2.2 Environment
+  ==============================================================
+   run tag    : nbody_baseline_20260919-145840
+   benchmark  : nbody        variant: baseline
+   date (UTC) : 2026-09-19T14:58:40Z
+   git commit : 327c9dc
+   git dirty  : 11 file(s)
+  ==============================================================
+  
+  --- host ---
+  uname      : Linux ubuntu 5.15.0-1106-kvm #111-Ubuntu SMP Tue Aug 11 15:19:54 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+  distro     : Ubuntu 22.04.5 LTS
+  nproc      : 1
+  virt       : kvm
+  hypervisor : yes
+  
+  --- cpu ---
+  Architecture:                            x86_64
+  CPU op-mode(s):                          32-bit, 64-bit
+  Address sizes:                           46 bits physical, 48 bits virtual
+  Byte Order:                              Little Endian
+  CPU(s):                                  1
+  On-line CPU(s) list:                     0
+  Vendor ID:                               GenuineIntel
+  Model name:                              Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz
+  CPU family:                              6
+  Model:                                   63
+  Thread(s) per core:                      1
+  Core(s) per socket:                      1
+  Socket(s):                               1
+  Stepping:                                2
+  BogoMIPS:                                4799.97
+  Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm cpuid_fault invpcid_single pti ssbd ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat umip md_clear flush_l1d arch_capabilities
+  Virtualization:                          VT-x
+  Hypervisor vendor:                       KVM
+  Virtualization type:                     full
+  L1d cache:                               32 KiB (1 instance)
+  L1i cache:                               32 KiB (1 instance)
+  L2 cache:                                4 MiB (1 instance)
+  
+  --- memory ---
+                 total        used        free      shared  buff/cache   available
+  Mem:           3.8Gi       136Mi       2.0Gi       0.0Ki       1.7Gi       3.7Gi
+  Swap:             0B          0B          0B
+  
+  --- toolchain ---
+  perf       : perf version 5.15.209
+  PY_REL     : python3 -> Python 3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0] 
+  PY_DBG     : python3-dbg -> Python 3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0] 
+  py-spy     : py-spy 0.4.2
+  FlameGraph : /root/FlameGraph present
+  
+  --- kernel knobs affecting measurement ---
+  kernel.perf_event_paranoid = -1
+  kernel.kptr_restrict = 0
+  kernel.randomize_va_space = 0
+  kernel.nmi_watchdog = ?
+  governor   : n/a (virtualized)
+  THP        : n/a
+  PMU        : 1
+  
+
+2.3 Hardware counters (baseline)
+  # started on Sat Sep 19 14:59:18 2026
+  
+  
+   Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_nbody.py --mode raw --loops 16 --no-gc' (5 runs):
+  
+             4278.22 msec task-clock                #    0.999 CPUs utilized            ( +-  0.02% )
+                1492      page-faults               #  349.072 /sec                   
+                1492      minor-faults              #  349.072 /sec                   
+                   0      major-faults              #    0.000 /sec                   
+                  63      context-switches          #   14.740 /sec                     ( +-  8.04% )
+                   0      cpu-migrations            #    0.000 /sec                   
+          9968057924      cycles                    #    2.332 GHz                      ( +-  0.02% )  (50.00%)
+         30533056082      instructions              #    3.06  insn per cycle           ( +-  0.02% )  (60.09%)
+          3518857904      branches                  #  823.280 M/sec                    ( +-  0.06% )  (60.13%)
+            19180446      branch-misses             #    0.55% of all branches          ( +-  0.19% )  (60.11%)
+             2250881      cache-references          #  526.621 K/sec                    ( +-  3.03% )  (60.12%)
+              106817      cache-misses              #    5.191 % of all cache refs      ( +- 13.53% )  (60.03%)
+          9746348983      L1-dcache-loads           #    2.280 G/sec                    ( +-  0.05% )  (39.87%)
+             3637836      L1-dcache-load-misses     #    0.04% of all L1-dcache accesses  ( +-  3.38% )  (39.89%)
+     <not supported>      LLC-loads                                                   
+     <not supported>      LLC-load-misses                                             
+          4875080661      dTLB-loads                #    1.141 G/sec                    ( +-  0.11% )  (39.88%)
+               56689      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +- 11.40% )  (39.97%)
+  
+             4.28153 +- 0.00275 seconds time elapsed  ( +-  0.06% )
+  
+
+2.4 perf report — hottest symbols, self time (baseline)
+
+
+2.5 Time by shared object (baseline)
+
+
+2.6 Hottest call stacks (baseline, folded)
+    [no folded stacks]
+
+2.7 Exact call counts (cProfile, baseline)
+  ======================================================================
+  TOP 40 BY TOTTIME (self time, excludes subcalls)
+  ======================================================================
+  Sat Sep 19 15:00:40 2026    /root/HW-SW-FULL/results/nbody_baseline_20260919-145840/raw/cprofile_baseline.pstats
+  
+           4062 function calls (3982 primitive calls) in 0.359 seconds
+  
+     Ordered by: internal time
+     List reduced from 311 to 40 due to restriction <40>
+  
+     ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+          1    0.352    0.352    0.352    0.352 /root/HW-SW-FULL/bench/bm_nbody.py:90(advance)
+          6    0.001    0.000    0.001    0.000 {built-in method marshal.loads}
+      40/38    0.001    0.000    0.001    0.000 {built-in method builtins.__build_class__}
+          2    0.000    0.000    0.000    0.000 {built-in method _imp.create_dynamic}
+         66    0.000    0.000    0.000    0.000 {built-in method posix.stat}
+         26    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+         10    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:179(_get_module_lock)
+        128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:126(_path_join)
+          6    0.000    0.000    0.000    0.000 {built-in method io.open_code}
+        8/6    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:494(_parse)
+          4    0.000    0.000    0.000    0.000 {built-in method __new__ of type object at 0x555555ad29a0}
+        128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:128(<listcomp>)
+       14/5    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_compile.py:87(_compile)
+         24    0.000    0.000    0.000    0.000 /usr/lib/python3.10/posixpath.py:71(join)
+          1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/argparse.py:1252(FileType)
+          8    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1399(_get_spec)
+         10    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap>:921(_find_spec)
+          6    0.000    0.000    0.000    0.000 {method 'read' of '_io.BufferedReader' objects}
+         66    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}
+          1    0.000    0.000    0.000    0.000 {built-in method builtins.eval}
+          5    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+          2    0.000    0.000    0.000    0.000 {built-in method _imp.exec_dynamic}
+          1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/collections/__init__.py:328(namedtuple)
+          3    0.000    0.000    0.000    0.000 /usr/lib/python3.10/gettext.py:542(find)
+          6    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:950(get_code)
+          5    0.000    0.000    0.004    0.001 /usr/lib/python3.10/argparse.py:1411(add_argument)
+       10/3    0.000    0.000    0.005    0.002 <frozen importlib._bootstrap>:1022(_find_and_load)
+          1    0.000    0.000    0.003    0.003 /usr/lib/python3.10/shutil.py:1(<module>)
+       10/3    0.000    0.000    0.005    0.002 <frozen importlib._bootstrap>:664(_load_unlocked)
+         12    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:380(cache_from_source)
+         10    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:492(_init_module_attrs)
+
+2.8 Flame graphs
+  Baseline SVGs (open in a browser; they are interactive):
+    /root/HW-SW-FULL/results/latest_nbody_baseline/flame/baseline.svg              (CPU flame graph)
+    /root/HW-SW-FULL/results/latest_nbody_baseline/flame/baseline_icicle.svg       (top-down; shows recursion depth)
+    /root/HW-SW-FULL/results/latest_nbody_baseline/flame/baseline_python.svg       (Python frames only)
+    /root/HW-SW-FULL/results/latest_nbody_baseline/flame/baseline_pyspy.svg        (py-spy cross-check)
+
+2.9 [TODO] Bottleneck interpretation
+  Write 1-2 paragraphs answering:
+    - Which frames dominate, and are they YOUR code, the interpreter, or libm?
+    - Is the limiter instruction count, stalls, or branch mispredictions?
+      (compare IPC in 2.3; low IPC with few cache misses points to dispatch
+      or dependency stalls rather than memory)
+    - For raytrace: quantify the object-allocation cost. For nbody: quantify
+      the pow() cost versus the multiply-accumulate cost.
+
+
+3. OPTIMIZATIONS
+-------------------------------------------------------------------------------
+3.1 Changes applied
+  See the module docstring of the optimized variant for the full rationale,
+  with each change tied to the profile observation that motivated it:
+    variants/bm_nbody_opt.py
+
+3.2 Correctness gate
+  Every optimization is cross-checked against the baseline implementation:
+    nbody: total system energy must match the baseline to within 1e-9
+    relative (float reassociation tolerance only), and energy drift over 1000
+    steps must stay below 1e-3 relative. The latter is the physically correct
+    test for a symplectic integrator, whose energy error is bounded and
+    oscillatory rather than zero -- an absolute 1e-6 bound was tried first and
+    was simply wrong. Measured cross-check: rel_diff = 3.3e-16 (bit-level).
+
+3.3 Optimizations considered and REJECTED
+  numpy       : both benchmarks operate on 3-element vectors. numpy's
+                per-call overhead (~1 us) exceeds the cost of 3 float ops, so
+                it is slower at this granularity. It would only win after
+                restructuring to batch all rays/bodies, which is a different
+                program.
+  threading   : the GIL serializes pure-Python float arithmetic.
+  algorithmic : for nbody, Barnes-Hut reduces O(n^2) to O(n log n) but is an
+                APPROXIMATION and would invalidate the energy oracle; with n=5
+                it is also slower. Out of scope for a like-for-like comparison.
+
+
+4. PERFORMANCE COMPARISON
+-------------------------------------------------------------------------------
+  ==========================================================================
+                        PERFORMANCE COMPARISON — nbody                      
+  ==========================================================================
+  
+  Source: clean-timing phase only (no profiler attached).
+  Statistic: MEDIAN of independent processes — robust to host hiccups.
+  
+  metric                baseline       optimized           delta
+  --------------------------------------------------------------------------
+  samples                      7               7                
+  min                 4.188391 s      3.857492 s     -0.330899 s
+  median              4.189840 s      3.858124 s     -0.331716 s
+  mean                4.191882 s      3.858993 s     -0.332889 s
+  max                 4.198107 s      3.862976 s     -0.335131 s
+  stdev               0.004213 s      0.001873 s     -0.002340 s
+  rel stdev                0.10%           0.05%                
+  
+  ==========================================================================
+    SPEEDUP     : 1.0860x
+    IMPROVEMENT : 7.92 %   (time reduction)
+    PROJECT BAR : 7.00 %
+    VERDICT     : PASS
+  ==========================================================================
+  
+  Signal check: improvement (7.92%) exceeds 2x noise (0.10%). OK.
+  Min-vs-min speedup (least-noise estimate): 1.0858x (7.90% improvement)
+
+4.1 Counter comparison
+  ===============================================================
+   PERF STAT COMPARISON — nbody
+  ===============================================================
+  
+  Counters come from perf stat COUNTING mode (~1% overhead), so the
+  ratios below are valid even though absolute wall time in profiled
+  phases is inflated.
+  
+  --------------------------------------------------------------
+   baseline
+  --------------------------------------------------------------
+  # started on Sat Sep 19 14:59:18 2026
+   Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_nbody.py --mode raw --loops 16 --no-gc' (5 runs):
+             4278.22 msec task-clock                #    0.999 CPUs utilized            ( +-  0.02% )
+                1492      page-faults               #  349.072 /sec                   
+                1492      minor-faults              #  349.072 /sec                   
+                   0      major-faults              #    0.000 /sec                   
+                  63      context-switches          #   14.740 /sec                     ( +-  8.04% )
+                   0      cpu-migrations            #    0.000 /sec                   
+          9968057924      cycles                    #    2.332 GHz                      ( +-  0.02% )  (50.00%)
+         30533056082      instructions              #    3.06  insn per cycle           ( +-  0.02% )  (60.09%)
+          3518857904      branches                  #  823.280 M/sec                    ( +-  0.06% )  (60.13%)
+            19180446      branch-misses             #    0.55% of all branches          ( +-  0.19% )  (60.11%)
+             2250881      cache-references          #  526.621 K/sec                    ( +-  3.03% )  (60.12%)
+              106817      cache-misses              #    5.191 % of all cache refs      ( +- 13.53% )  (60.03%)
+          9746348983      L1-dcache-loads           #    2.280 G/sec                    ( +-  0.05% )  (39.87%)
+             3637836      L1-dcache-load-misses     #    0.04% of all L1-dcache accesses  ( +-  3.38% )  (39.89%)
+          4875080661      dTLB-loads                #    1.141 G/sec                    ( +-  0.11% )  (39.88%)
+               56689      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +- 11.40% )  (39.97%)
+             4.28153 +- 0.00275 seconds time elapsed  ( +-  0.06% )
+  
+  --------------------------------------------------------------
+   optimized
+  --------------------------------------------------------------
+  # started on Sat Sep 19 15:01:49 2026
+   Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/variants/bm_nbody_opt.py --mode raw --loops 16 --no-gc' (5 runs):
+             3956.98 msec task-clock                #    0.999 CPUs utilized            ( +-  0.01% )
+                1516      page-faults               #  383.174 /sec                   
+                1516      minor-faults              #  383.174 /sec                   
+                   0      major-faults              #    0.000 /sec                   
+                  32      context-switches          #    8.088 /sec                     ( +-  5.17% )
+                   0      cpu-migrations            #    0.000 /sec                   
+          9231917878      cycles                    #    2.333 GHz                      ( +-  0.03% )  (50.00%)
+         29765586717      instructions              #    3.23  insn per cycle           ( +-  0.02% )  (60.01%)
+          3454042445      branches                  #  873.020 M/sec                    ( +-  0.03% )  (60.01%)
+            17971567      branch-misses             #    0.52% of all branches          ( +-  0.09% )  (60.01%)
+             2054874      cache-references          #  519.376 K/sec                    ( +-  1.58% )  (60.00%)
+               49229      cache-misses              #    2.453 % of all cache refs      ( +-  6.41% )  (60.00%)
+          9507344029      L1-dcache-loads           #    2.403 G/sec                    ( +-  0.03% )  (39.99%)
+             3256015      L1-dcache-load-misses     #    0.03% of all L1-dcache accesses  ( +-  4.30% )  (39.99%)
+          4735255926      dTLB-loads                #    1.197 G/sec                    ( +-  0.02% )  (40.00%)
+               85955      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +-  5.66% )  (40.00%)
+            3.961880 +- 0.000965 seconds time elapsed  ( +-  0.02% )
+  
+  --------------------------------------------------------------
+   derived ratios (insn, IPC, miss rates)
+  --------------------------------------------------------------
+   baseline   instructions=30533056082      cycles=9968057924       IPC=3.0631
+   optimized  instructions=29765586717      cycles=9231917878       IPC=3.2242
+
+4.2 Symbol-level delta
+  ==============================================================================
+   SYMBOL-LEVEL DELTA (self overhead %, sampled profile)
+  ==============================================================================
+  Note: percentages are shares of each profile, so they sum to ~100 in
+  both columns. A symbol dropping to 0.00 means it was eliminated.
+  
+  symbol                                            base%     opt%     delta
+  ------------------------------------------------------------------------------
+  
+
+4.3 Differential flame graph
+    /root/HW-SW-FULL/results/latest_comparison_nbody/diff_flame.svg
+  Red = more time in the optimized build, blue = less. Sample counts are
+  normalized (difffolded.pl -n) so the two profiles are comparable despite
+  different loop counts.
+
+4.4 pyperformance (independent harness)
+  Total duration: 19.5 sec
+  Start date: 2026-09-19 15:00:52
+  End date: 2026-09-19 15:01:14
+  Raw value minimum: 228 ms
+  Raw value maximum: 244 ms
+  
+  Number of calibration run: 1
+  Number of run with values: 20
+  Total number of run: 21
+  
+  Number of warmup per run: 1
+  Number of value per run: 3
+  Loop iterations per value: 1
+  Total number of values: 60
+  
+  Minimum:         228 ms
+  Median +- MAD:   230 ms +- 1 ms
+  Mean +- std dev: 231 ms +- 3 ms
+  Maximum:         244 ms
+  
+    0th percentile: 228 ms (-1% of the mean) -- minimum
+    5th percentile: 229 ms (-1% of the mean)
+   25th percentile: 229 ms (-1% of the mean) -- Q1
+   50th percentile: 230 ms (-0% of the mean) -- median
+   75th percentile: 231 ms (+0% of the mean) -- Q3
+
+4.5 [TODO] Interpretation
+  Explain WHY it got faster using 4.1: did instruction count fall (work
+  removed), or did IPC rise (stalls removed)? Those are different claims and
+  the counters distinguish them.
+
+
+5. HARDWARE ACCELERATION PROPOSAL
+-------------------------------------------------------------------------------
+  [TODO — this section is yours to design. The brief requires ALL of:]
+
+  5.1 Hardware description
+      RTL in Verilog / SystemVerilog / PyXHDL. Complete and logically
+      consistent; it does NOT need to be synthesizable or tape-out ready.
+      Suggested starting point given these two benchmarks: a 3-lane
+      multiply-accumulate / dot-product unit with an optional reciprocal-sqrt
+      stage, since both benchmarks reduce to dot products plus an inverse
+      magnitude. See docs/HW_PROPOSAL_NOTES.md for the measured data that
+      motivates the design and for the numbers to quote.
+
+  5.2 Inputs and outputs
+      Data widths, interfaces, expected operating frequency.
+
+  5.3 Hardware architecture
+      Main datapath plus control logic; pipeline depth and latency.
+
+  5.4 Hardware/software interface
+      How CPython reaches it: memory-mapped registers, a new instruction, a
+      DMA path? Which software layer changes — the interpreter's float ops, a
+      C extension, or an ISA intrinsic? Recall the course rule: do not expect
+      end users to change their code, and never break it.
+
+  5.5 Acceleration justification
+      Use YOUR measured numbers from sections 2 and 4: the fraction of time in
+      the target operation bounds the achievable speedup (Amdahl). State your
+      assumptions explicitly.
+
+  5.6 Block diagram
+      Accelerator, its interfaces, and its place in the overall system.
+
+  5.7 Performance / area / power trade-offs
+
+
+6. CONCLUSION
+-------------------------------------------------------------------------------
+  [TODO] Summarize: what the profiling revealed, what the software
+  optimization achieved and at what cost in readability, what the proposed
+  hardware would add on top, and where the remaining bottleneck would move to
+  afterwards (it always moves — say where).
+
+
+===============================================================================
+ ARTIFACT INDEX
+===============================================================================
+ baseline run   : /root/HW-SW-FULL/results/latest_nbody_baseline
+ optimized run  : /root/HW-SW-FULL/results/latest_nbody_optimized
+ comparison     : /root/HW-SW-FULL/results/latest_comparison_nbody
+ run scripts    : script_nbody.sh, run_all.sh
+ sources        : bench/bm_nbody.py, variants/bm_nbody_opt.py
+===============================================================================

@@ -1,0 +1,140 @@
+======================================================================
+TOP 40 BY TOTTIME (self time, excludes subcalls)
+======================================================================
+Sat Sep 19 14:55:23 2026    /root/HW-SW-FULL/results/raytrace_baseline_20260919-145318/raw/cprofile_baseline.pstats
+
+         1020243 function calls (1013609 primitive calls) in 0.685 seconds
+
+   Ordered by: internal time
+   List reduced from 345 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    92796    0.113    0.000    0.273    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)
+   223295    0.084    0.000    0.084    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+   229592    0.072    0.000    0.072    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+16543/10000    0.070    0.000    0.574    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
+   107300    0.069    0.000    0.103    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
+    23199    0.061    0.000    0.351    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)
+        1    0.048    0.048    0.674    0.674 /root/HW-SW-FULL/bench/bm_raytrace.py:194(render)
+    46140    0.030    0.000    0.044    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
+    24504    0.025    0.000    0.065    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
+    26398    0.018    0.000    0.026    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:56(__add__)
+    24504    0.017    0.000    0.031    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)
+    23199    0.014    0.000    0.018    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:122(intersect)
+    30024    0.009    0.000    0.009    0.000 {built-in method builtins.max}
+    30044    0.009    0.000    0.009    0.000 {built-in method builtins.min}
+     6543    0.007    0.000    0.022    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)
+     5351    0.006    0.000    0.008    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:131(color_at)
+    28863    0.005    0.000    0.005    0.000 {built-in method math.sqrt}
+    30220    0.004    0.000    0.004    0.000 {method 'append' of 'list' objects}
+    23199    0.004    0.000    0.004    0.000 {built-in method builtins.abs}
+     5351    0.003    0.000    0.005    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:128(normal_at)
+    10702    0.002    0.000    0.002    0.000 {built-in method math.floor}
+        3    0.002    0.001    0.002    0.001 {built-in method _imp.exec_dynamic}
+     6897    0.001    0.000    0.001    0.000 {built-in method builtins.isinstance}
+     1305    0.001    0.000    0.006    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:111(normal_at)
+        3    0.001    0.000    0.001    0.000 {built-in method _imp.create_dynamic}
+        7    0.001    0.000    0.001    0.000 {built-in method marshal.loads}
+    43/41    0.001    0.000    0.001    0.000 {built-in method builtins.__build_class__}
+       33    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+       76    0.000    0.000    0.000    0.000 {built-in method posix.stat}
+        7    0.000    0.000    0.000    0.000 {built-in method io.open_code}
+      160    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:128(<listcomp>)
+      160    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:126(_path_join)
+      8/6    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:494(_parse)
+        4    0.000    0.000    0.000    0.000 {built-in method __new__ of type object at 0x555555ad29a0}
+       14    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:165(__init__)
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.eval}
+       98    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}
+        1    0.000    0.000    0.685    0.685 /root/HW-SW-FULL/bench/bm_raytrace.py:1(<module>)
+       14    0.000    0.000    0.002    0.000 <frozen importlib._bootstrap>:921(_find_spec)
+       24    0.000    0.000    0.000    0.000 /usr/lib/python3.10/posixpath.py:71(join)
+
+
+======================================================================
+TOP 25 BY CUMTIME (includes subcalls)
+======================================================================
+Sat Sep 19 14:55:23 2026    /root/HW-SW-FULL/results/raytrace_baseline_20260919-145318/raw/cprofile_baseline.pstats
+
+         1020243 function calls (1013609 primitive calls) in 0.685 seconds
+
+   Ordered by: cumulative time
+   List reduced from 345 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      8/1    0.000    0.000    0.685    0.685 {built-in method builtins.exec}
+        1    0.000    0.000    0.685    0.685 /root/HW-SW-FULL/bench/bm_raytrace.py:1(<module>)
+        1    0.000    0.000    0.680    0.680 /root/HW-SW-FULL/bench/bm_raytrace.py:239(main)
+        1    0.000    0.000    0.674    0.674 /root/HW-SW-FULL/bench/bm_raytrace.py:221(benchmark)
+        1    0.048    0.048    0.674    0.674 /root/HW-SW-FULL/bench/bm_raytrace.py:194(render)
+16543/10000    0.070    0.000    0.574    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
+    23199    0.061    0.000    0.351    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)
+    92796    0.113    0.000    0.273    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)
+   107300    0.069    0.000    0.103    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
+   223295    0.084    0.000    0.084    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+   229592    0.072    0.000    0.072    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+    24504    0.025    0.000    0.065    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
+    46140    0.030    0.000    0.044    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
+    24504    0.017    0.000    0.031    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)
+    26398    0.018    0.000    0.026    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:56(__add__)
+     6543    0.007    0.000    0.022    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)
+    23199    0.014    0.000    0.018    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:122(intersect)
+    30024    0.009    0.000    0.009    0.000 {built-in method builtins.max}
+    30044    0.009    0.000    0.009    0.000 {built-in method builtins.min}
+     14/5    0.000    0.000    0.008    0.002 <frozen importlib._bootstrap>:1022(_find_and_load)
+     14/5    0.000    0.000    0.008    0.002 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+     5351    0.006    0.000    0.008    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:131(color_at)
+     14/5    0.000    0.000    0.008    0.002 <frozen importlib._bootstrap>:664(_load_unlocked)
+      7/3    0.000    0.000    0.007    0.002 <frozen importlib._bootstrap_external>:877(exec_module)
+     21/7    0.000    0.000    0.007    0.001 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+
+
+======================================================================
+CALLEES OF THE 15 HOTTEST FUNCTIONS
+======================================================================
+   Ordered by: internal time
+   List reduced from 345 to 15 due to restriction <15>
+
+Function                                                called...
+                                                            ncalls  tottime  cumtime
+/root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)     ->   92796    0.060    0.089  /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
+                                                            185592    0.069    0.069  /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+                                                              4359    0.001    0.001  {built-in method math.sqrt}
+/root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)           -> 
+/root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)      -> 
+/root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)        ->    9887    0.003    0.003  /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+                                                             26398    0.018    0.026  /root/HW-SW-FULL/bench/bm_raytrace.py:56(__add__)
+                                                              6656    0.004    0.007  /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
+                                                             39597    0.026    0.038  /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
+                                                              6656    0.003    0.003  /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+                                                             13199    0.013    0.034  /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
+                                                              6543    0.007    0.022  /root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)
+                                                              1305    0.001    0.006  /root/HW-SW-FULL/bench/bm_raytrace.py:111(normal_at)
+                                                              5351    0.003    0.005  /root/HW-SW-FULL/bench/bm_raytrace.py:128(normal_at)
+                                                              5351    0.006    0.008  /root/HW-SW-FULL/bench/bm_raytrace.py:131(color_at)
+                                                             23199    0.061    0.351  /root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)
+                                                         6543/5324    0.017    0.168  /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
+                                                              6656    0.001    0.001  {built-in method builtins.isinstance}
+/root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)       ->  107300    0.034    0.034  /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+/root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)  ->   92796    0.113    0.273  /root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)
+                                                             23199    0.014    0.018  /root/HW-SW-FULL/bench/bm_raytrace.py:122(intersect)
+/root/HW-SW-FULL/bench/bm_raytrace.py:194(render)       ->   10001    0.003    0.003  /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+                                                             10000    0.011    0.027  /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
+                                                             10000    0.053    0.574  /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
+                                                             30000    0.009    0.009  {built-in method builtins.max}
+                                                             30000    0.009    0.009  {built-in method builtins.min}
+                                                             30000    0.004    0.004  {method 'append' of 'list' objects}
+/root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)       ->   46140    0.014    0.014  /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+/root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)     ->   24504    0.008    0.008  /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+                                                             24504    0.017    0.031  /root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)
+/root/HW-SW-FULL/bench/bm_raytrace.py:56(__add__)       ->   26398    0.008    0.008  /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+/root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)     ->   24504    0.010    0.010  /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+                                                             24504    0.004    0.004  {built-in method math.sqrt}
+/root/HW-SW-FULL/bench/bm_raytrace.py:122(intersect)    ->   23199    0.004    0.004  {built-in method builtins.abs}
+{built-in method builtins.max}                          ->      28    0.000    0.000  <frozen importlib._bootstrap_external>:134(<genexpr>)
+{built-in method builtins.min}                          -> 
+/root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)       ->    6543    0.004    0.006  /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
+                                                              6543    0.004    0.006  /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
+                                                              6543    0.002    0.002  /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+
+

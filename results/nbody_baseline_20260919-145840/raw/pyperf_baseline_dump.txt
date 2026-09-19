@@ -1,0 +1,113 @@
+Run 1: calibrate the number of loops: 1
+- calibrate 1: 228 ms (loops: 1, raw: 228 ms)
+- calibrate 2: 228 ms (loops: 1, raw: 228 ms)
+- calibrate 3: 229 ms (loops: 1, raw: 229 ms)
+- calibrate 4: 228 ms (loops: 1, raw: 228 ms)
+Run 2: 1 warmup, 3 values, 1 loop
+- warmup 1: 239 ms
+- value 1: 233 ms
+- value 2: 233 ms
+- value 3: 233 ms
+Run 3: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 4: 1 warmup, 3 values, 1 loop
+- warmup 1: 229 ms
+- value 1: 230 ms
+- value 2: 230 ms
+- value 3: 230 ms
+Run 5: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 6: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 7: 1 warmup, 3 values, 1 loop
+- warmup 1: 228 ms
+- value 1: 244 ms (+6%)
+- value 2: 243 ms (+6%)
+- value 3: 243 ms (+5%)
+Run 8: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 9: 1 warmup, 3 values, 1 loop
+- warmup 1: 229 ms
+- value 1: 231 ms
+- value 2: 231 ms
+- value 3: 231 ms
+Run 10: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 11: 1 warmup, 3 values, 1 loop
+- warmup 1: 231 ms
+- value 1: 233 ms
+- value 2: 232 ms
+- value 3: 233 ms
+Run 12: 1 warmup, 3 values, 1 loop
+- warmup 1: 228 ms
+- value 1: 229 ms
+- value 2: 228 ms
+- value 3: 229 ms
+Run 13: 1 warmup, 3 values, 1 loop
+- warmup 1: 230 ms
+- value 1: 232 ms
+- value 2: 231 ms
+- value 3: 231 ms
+Run 14: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 15: 1 warmup, 3 values, 1 loop
+- warmup 1: 228 ms
+- value 1: 229 ms
+- value 2: 228 ms
+- value 3: 229 ms
+Run 16: 1 warmup, 3 values, 1 loop
+- warmup 1: 227 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 17: 1 warmup, 3 values, 1 loop
+- warmup 1: 228 ms
+- value 1: 229 ms
+- value 2: 229 ms
+- value 3: 229 ms
+Run 18: 1 warmup, 3 values, 1 loop
+- warmup 1: 230 ms
+- value 1: 231 ms
+- value 2: 231 ms
+- value 3: 231 ms
+Run 19: 1 warmup, 3 values, 1 loop
+- warmup 1: 230 ms
+- value 1: 231 ms
+- value 2: 231 ms
+- value 3: 231 ms
+Run 20: 1 warmup, 3 values, 1 loop
+- warmup 1: 235 ms
+- value 1: 231 ms
+- value 2: 231 ms
+- value 3: 231 ms
+Run 21: 1 warmup, 3 values, 1 loop
+- warmup 1: 239 ms
+- value 1: 231 ms
+- value 2: 231 ms
+- value 3: 231 ms
+
+WARNING: the benchmark result may be unstable
+* Not enough samples to get a stable result (95% certainly of less than 1% variation)
+
+Try to rerun the benchmark with more runs, values and/or loops.
+Run 'python -m pyperf system tune' command to reduce the system jitter.
+Use pyperf stats, pyperf dump and pyperf hist to analyze results.
+Use --quiet option to hide these warnings.

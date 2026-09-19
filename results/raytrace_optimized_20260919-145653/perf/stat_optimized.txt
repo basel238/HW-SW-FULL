@@ -1,0 +1,26 @@
+# started on Sat Sep 19 14:57:21 2026
+
+
+ Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/variants/bm_raytrace_opt.py --mode raw --loops 32 --no-gc' (5 runs):
+
+           3176.05 msec task-clock                #    0.998 CPUs utilized            ( +-  0.02% )
+              2339      page-faults               #  736.188 /sec                   
+              2339      minor-faults              #  736.188 /sec                   
+                 0      major-faults              #    0.000 /sec                   
+                36      context-switches          #   11.331 /sec                     ( +-  2.97% )
+                 0      cpu-migrations            #    0.000 /sec                   
+        7400897739      cycles                    #    2.329 GHz                      ( +-  0.03% )  (49.70%)
+       22481688153      instructions              #    3.04  insn per cycle           ( +-  0.05% )  (59.77%)
+        2624183358      branches                  #  825.948 M/sec                    ( +-  0.07% )  (59.88%)
+          15694595      branch-misses             #    0.60% of all branches          ( +-  0.42% )  (60.01%)
+           2659652      cache-references          #  837.112 K/sec                    ( +-  1.72% )  (60.15%)
+            123673      cache-misses              #    4.596 % of all cache refs      ( +- 15.87% )  (60.25%)
+        7076058356      L1-dcache-loads           #    2.227 G/sec                    ( +-  0.04% )  (40.12%)
+          25875111      L1-dcache-load-misses     #    0.37% of all L1-dcache accesses  ( +-  0.46% )  (39.99%)
+   <not supported>      LLC-loads                                                   
+   <not supported>      LLC-load-misses                                             
+        3519259927      dTLB-loads                #    1.108 G/sec                    ( +-  0.08% )  (39.85%)
+            540260      dTLB-load-misses          #    0.02% of all dTLB cache accesses  ( +-  1.62% )  (39.75%)
+
+           3.18244 +- 0.00186 seconds time elapsed  ( +-  0.06% )
+

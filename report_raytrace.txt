@@ -1,0 +1,451 @@
+[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
+[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
+===============================================================================
+ REPORT — raytrace
+ HW/SW Co-design (00460882) — Benchmark Optimization, Analysis,
+                              and Hardware Acceleration
+===============================================================================
+ Generated : 2026-09-19T15:03:17Z
+ Commit    : 327c9dc
+ Host      : Linux 5.15.0-1106-kvm x86_64 | Ubuntu 22.04.5 LTS
+ Generator : tools/gen_report.sh (measured sections are auto-filled; analysis
+             sections marked [TODO] require your own writing)
+===============================================================================
+
+
+1. OVERVIEW
+-------------------------------------------------------------------------------
+1.1 Purpose
+Recursive ray tracing: 4 spheres plus a checkerboard ground plane, Lambertian diffuse shading, hard shadows via occlusion rays, and specular reflection to a recursion depth of 3. Renders an RGB image and checksums it.
+
+1.2 Libraries used
+Standard library only: math (sqrt, floor), hashlib (correctness checksum), time (perf_counter). NO third-party dependencies, so the profile reflects CPython itself rather than a C extension.
+
+1.3 Data structures
+Baseline: a Vector class with __slots__=('x','y','z') and operator overloads (__add__, __sub__, __mul__, dot, magnitude, normalize, reflect); Sphere and Plane objects held in a dict; output pixels in a flat Python list of ints.
+Optimized: the Vector class is removed entirely. Coordinates are carried as separate float locals; the scene is flattened into tuples of scalars.
+
+1.4 Algorithms
+Per pixel: construct and normalize a primary ray; for each object solve the ray-sphere quadratic (or the ray-plane linear equation) and keep the nearest positive root; shade; cast one shadow ray toward the light; recurse along the reflected direction up to MAX_DEPTH=3. Complexity is O(pixels x objects x 2^depth) in the worst case.
+
+1.5 Why this benchmark was selected
+  * raytrace and nbody are both FP/compute-bound, which makes the interpreter
+    overhead versus useful arithmetic ratio directly measurable with perf stat.
+  * They fail in COMPLEMENTARY ways: raytrace is allocation- and
+    branch-heavy (object protocol overhead, unpredictable control flow), while
+    nbody is allocation-free and branch-free (pure bytecode dispatch over a
+    working set that fits in L1). Optimizing both therefore exercises two
+    distinct bottleneck classes rather than the same one twice.
+  * Both have exact correctness oracles (image checksum / energy conservation),
+    so no optimization can silently trade accuracy for speed.
+
+
+2. INITIAL ANALYSIS (BASELINE)
+-------------------------------------------------------------------------------
+2.1 Measurement methodology
+
+  Profilers perturb what they measure, so this project separates phases and
+  never quotes a number taken from an instrumented run:
+
+    phase 1  verify         correctness gate (hard fail)
+    phase 2  clean timing   NO profiler attached      <-- QUOTED NUMBERS
+    phase 3  perf stat      counting mode, ~1% ovh    IPC / cache / branches
+    phase 4  perf record    sampling, high ovh        flame graphs only
+    phase 5  cProfile       tracing, 2-5x ovh         exact call counts only
+    phase 6  pyperformance  upstream harness          citable mean +- stdev
+
+  Noise control: single-CPU pinning via taskset, PYTHONHASHSEED fixed,
+  cyclic GC disabled during the timed region, ASLR disabled, CPU governor set
+  to performance where the platform exposes it. Reported statistic is the
+  MEDIAN over 7 independent processes, with relative standard
+  deviation reported so the reader can judge whether the result is solid.
+
+  Sampling frequency is 999 Hz (deliberately not a round 1000 Hz, to
+  avoid lock-stepping with periodic kernel timers and with the benchmark's own
+  loop boundaries). Call graphs use dwarf unwinding because stock CPython
+  is compiled with -fomit-frame-pointer, so frame-pointer unwinding yields
+  truncated stacks.
+
+2.2 Environment
+  ==============================================================
+   run tag    : raytrace_baseline_20260919-145318
+   benchmark  : raytrace        variant: baseline
+   date (UTC) : 2026-09-19T14:53:19Z
+   git commit : 327c9dc
+   git dirty  : 4 file(s)
+  ==============================================================
+  
+  --- host ---
+  uname      : Linux ubuntu 5.15.0-1106-kvm #111-Ubuntu SMP Tue Aug 11 15:19:54 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+  distro     : Ubuntu 22.04.5 LTS
+  nproc      : 1
+  virt       : kvm
+  hypervisor : yes
+  
+  --- cpu ---
+  Architecture:                            x86_64
+  CPU op-mode(s):                          32-bit, 64-bit
+  Address sizes:                           46 bits physical, 48 bits virtual
+  Byte Order:                              Little Endian
+  CPU(s):                                  1
+  On-line CPU(s) list:                     0
+  Vendor ID:                               GenuineIntel
+  Model name:                              Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz
+  CPU family:                              6
+  Model:                                   63
+  Thread(s) per core:                      1
+  Core(s) per socket:                      1
+  Socket(s):                               1
+  Stepping:                                2
+  BogoMIPS:                                4799.97
+  Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm cpuid_fault invpcid_single pti ssbd ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat umip md_clear flush_l1d arch_capabilities
+  Virtualization:                          VT-x
+  Hypervisor vendor:                       KVM
+  Virtualization type:                     full
+  L1d cache:                               32 KiB (1 instance)
+  L1i cache:                               32 KiB (1 instance)
+  L2 cache:                                4 MiB (1 instance)
+  
+  --- memory ---
+                 total        used        free      shared  buff/cache   available
+  Mem:           3.8Gi       134Mi       2.1Gi       0.0Ki       1.7Gi       3.7Gi
+  Swap:             0B          0B          0B
+  
+  --- toolchain ---
+  perf       : perf version 5.15.209
+  PY_REL     : python3 -> Python 3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0] 
+  PY_DBG     : python3-dbg -> Python 3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0] 
+  py-spy     : py-spy 0.4.2
+  FlameGraph : /root/FlameGraph present
+  
+  --- kernel knobs affecting measurement ---
+  kernel.perf_event_paranoid = -1
+  kernel.kptr_restrict = 0
+  kernel.randomize_va_space = 0
+  kernel.nmi_watchdog = ?
+  governor   : n/a (virtualized)
+  THP        : n/a
+  PMU        : 1
+  
+
+2.3 Hardware counters (baseline)
+  # started on Sat Sep 19 14:53:57 2026
+  
+  
+   Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_raytrace.py --mode raw --loops 16 --no-gc' (5 runs):
+  
+             4344.38 msec task-clock                #    1.009 CPUs utilized            ( +-  0.48% )
+                2029      page-faults               #  472.377 /sec                   
+                2029      minor-faults              #  472.377 /sec                   
+                   0      major-faults              #    0.000 /sec                   
+                  36      context-switches          #    8.381 /sec                     ( +- 29.90% )
+                   0      cpu-migrations            #    0.000 /sec                   
+         10118812257      cycles                    #    2.356 GHz                      ( +-  0.48% )  (49.86%)
+         27781886576      instructions              #    2.78  insn per cycle           ( +-  0.02% )  (59.89%)
+          3399077053      branches                  #  791.349 M/sec                    ( +-  0.07% )  (59.92%)
+            10704930      branch-misses             #    0.31% of all branches          ( +-  0.41% )  (59.92%)
+             4865041      cache-references          #    1.133 M/sec                    ( +-  6.70% )  (60.02%)
+               95153      cache-misses              #    1.823 % of all cache refs      ( +- 12.03% )  (60.11%)
+          9033670623      L1-dcache-loads           #    2.103 G/sec                    ( +-  0.06% )  (40.08%)
+           182736986      L1-dcache-load-misses     #    2.02% of all L1-dcache accesses  ( +-  0.35% )  (40.08%)
+     <not supported>      LLC-loads                                                   
+     <not supported>      LLC-load-misses                                             
+          4492139315      dTLB-loads                #    1.046 G/sec                    ( +-  0.07% )  (39.98%)
+             1618743      dTLB-load-misses          #    0.04% of all dTLB cache accesses  ( +-  1.64% )  (39.89%)
+  
+              4.3046 +- 0.0226 seconds time elapsed  ( +-  0.52% )
+  
+
+2.4 perf report — hottest symbols, self time (baseline)
+
+
+2.5 Time by shared object (baseline)
+
+
+2.6 Hottest call stacks (baseline, folded)
+    [no folded stacks]
+
+2.7 Exact call counts (cProfile, baseline)
+  ======================================================================
+  TOP 40 BY TOTTIME (self time, excludes subcalls)
+  ======================================================================
+  Sat Sep 19 14:55:23 2026    /root/HW-SW-FULL/results/raytrace_baseline_20260919-145318/raw/cprofile_baseline.pstats
+  
+           1020243 function calls (1013609 primitive calls) in 0.685 seconds
+  
+     Ordered by: internal time
+     List reduced from 345 to 40 due to restriction <40>
+  
+     ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      92796    0.113    0.000    0.273    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)
+     223295    0.084    0.000    0.084    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
+     229592    0.072    0.000    0.072    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+  16543/10000    0.070    0.000    0.574    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
+     107300    0.069    0.000    0.103    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
+      23199    0.061    0.000    0.351    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)
+          1    0.048    0.048    0.674    0.674 /root/HW-SW-FULL/bench/bm_raytrace.py:194(render)
+      46140    0.030    0.000    0.044    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
+      24504    0.025    0.000    0.065    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
+      26398    0.018    0.000    0.026    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:56(__add__)
+      24504    0.017    0.000    0.031    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)
+      23199    0.014    0.000    0.018    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:122(intersect)
+      30024    0.009    0.000    0.009    0.000 {built-in method builtins.max}
+      30044    0.009    0.000    0.009    0.000 {built-in method builtins.min}
+       6543    0.007    0.000    0.022    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)
+       5351    0.006    0.000    0.008    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:131(color_at)
+      28863    0.005    0.000    0.005    0.000 {built-in method math.sqrt}
+      30220    0.004    0.000    0.004    0.000 {method 'append' of 'list' objects}
+      23199    0.004    0.000    0.004    0.000 {built-in method builtins.abs}
+       5351    0.003    0.000    0.005    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:128(normal_at)
+      10702    0.002    0.000    0.002    0.000 {built-in method math.floor}
+          3    0.002    0.001    0.002    0.001 {built-in method _imp.exec_dynamic}
+       6897    0.001    0.000    0.001    0.000 {built-in method builtins.isinstance}
+       1305    0.001    0.000    0.006    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:111(normal_at)
+          3    0.001    0.000    0.001    0.000 {built-in method _imp.create_dynamic}
+          7    0.001    0.000    0.001    0.000 {built-in method marshal.loads}
+      43/41    0.001    0.000    0.001    0.000 {built-in method builtins.__build_class__}
+         33    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+         76    0.000    0.000    0.000    0.000 {built-in method posix.stat}
+          7    0.000    0.000    0.000    0.000 {built-in method io.open_code}
+        160    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:128(<listcomp>)
+
+2.8 Flame graphs
+  Baseline SVGs (open in a browser; they are interactive):
+    /root/HW-SW-FULL/results/latest_raytrace_baseline/flame/baseline.svg              (CPU flame graph)
+    /root/HW-SW-FULL/results/latest_raytrace_baseline/flame/baseline_icicle.svg       (top-down; shows recursion depth)
+    /root/HW-SW-FULL/results/latest_raytrace_baseline/flame/baseline_python.svg       (Python frames only)
+    /root/HW-SW-FULL/results/latest_raytrace_baseline/flame/baseline_pyspy.svg        (py-spy cross-check)
+
+2.9 [TODO] Bottleneck interpretation
+  Write 1-2 paragraphs answering:
+    - Which frames dominate, and are they YOUR code, the interpreter, or libm?
+    - Is the limiter instruction count, stalls, or branch mispredictions?
+      (compare IPC in 2.3; low IPC with few cache misses points to dispatch
+      or dependency stalls rather than memory)
+    - For raytrace: quantify the object-allocation cost. For nbody: quantify
+      the pow() cost versus the multiply-accumulate cost.
+
+
+3. OPTIMIZATIONS
+-------------------------------------------------------------------------------
+3.1 Changes applied
+  See the module docstring of the optimized variant for the full rationale,
+  with each change tied to the profile observation that motivated it:
+    variants/bm_raytrace_opt.py
+
+3.2 Correctness gate
+  Every optimization is cross-checked against the baseline implementation:
+    raytrace: the rendered 32x32 image must be BIT-IDENTICAL to the baseline
+    (SHA-256 of the pixel buffer). Note the finding recorded in the variant's
+    docstring: replacing three divisions with a reciprocal-multiply is ~1 ULP
+    off and flipped a single shadow-edge pixel by 118/255, because the renderer
+    contains discontinuities (shadow hit/miss tests). The gate caught it, and
+    exact division is now the default (FAST_FP=1 opts back in, and fails the
+    gate, which is a useful thing to demonstrate live). This shows concretely
+    that 'safe' FP strength reduction is only safe in branch-free numeric code.
+
+3.3 Optimizations considered and REJECTED
+  numpy       : both benchmarks operate on 3-element vectors. numpy's
+                per-call overhead (~1 us) exceeds the cost of 3 float ops, so
+                it is slower at this granularity. It would only win after
+                restructuring to batch all rays/bodies, which is a different
+                program.
+  threading   : the GIL serializes pure-Python float arithmetic.
+  algorithmic : for nbody, Barnes-Hut reduces O(n^2) to O(n log n) but is an
+                APPROXIMATION and would invalidate the energy oracle; with n=5
+                it is also slower. Out of scope for a like-for-like comparison.
+
+
+4. PERFORMANCE COMPARISON
+-------------------------------------------------------------------------------
+  ==========================================================================
+                       PERFORMANCE COMPARISON — raytrace                    
+  ==========================================================================
+  
+  Source: clean-timing phase only (no profiler attached).
+  Statistic: MEDIAN of independent processes — robust to host hiccups.
+  
+  metric                baseline       optimized           delta
+  --------------------------------------------------------------------------
+  samples                      7               7                
+  min                 4.118042 s      3.071350 s     -1.046692 s
+  median              4.126748 s      3.084778 s     -1.041970 s
+  mean                4.126174 s      3.084453 s     -1.041721 s
+  max                 4.133301 s      3.110331 s     -1.022970 s
+  stdev               0.004984 s      0.013200 s     +0.008215 s
+  rel stdev                0.12%           0.43%                
+  
+  ==========================================================================
+    SPEEDUP     : 1.3378x
+    IMPROVEMENT : 25.25 %   (time reduction)
+    PROJECT BAR : 7.00 %
+    VERDICT     : PASS
+  ==========================================================================
+  
+  Signal check: improvement (25.25%) exceeds 2x noise (0.43%). OK.
+  Min-vs-min speedup (least-noise estimate): 1.3408x (25.42% improvement)
+
+4.1 Counter comparison
+  ===============================================================
+   PERF STAT COMPARISON — raytrace
+  ===============================================================
+  
+  Counters come from perf stat COUNTING mode (~1% overhead), so the
+  ratios below are valid even though absolute wall time in profiled
+  phases is inflated.
+  
+  --------------------------------------------------------------
+   baseline
+  --------------------------------------------------------------
+  # started on Sat Sep 19 14:53:57 2026
+   Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_raytrace.py --mode raw --loops 16 --no-gc' (5 runs):
+             4344.38 msec task-clock                #    1.009 CPUs utilized            ( +-  0.48% )
+                2029      page-faults               #  472.377 /sec                   
+                2029      minor-faults              #  472.377 /sec                   
+                   0      major-faults              #    0.000 /sec                   
+                  36      context-switches          #    8.381 /sec                     ( +- 29.90% )
+                   0      cpu-migrations            #    0.000 /sec                   
+         10118812257      cycles                    #    2.356 GHz                      ( +-  0.48% )  (49.86%)
+         27781886576      instructions              #    2.78  insn per cycle           ( +-  0.02% )  (59.89%)
+          3399077053      branches                  #  791.349 M/sec                    ( +-  0.07% )  (59.92%)
+            10704930      branch-misses             #    0.31% of all branches          ( +-  0.41% )  (59.92%)
+             4865041      cache-references          #    1.133 M/sec                    ( +-  6.70% )  (60.02%)
+               95153      cache-misses              #    1.823 % of all cache refs      ( +- 12.03% )  (60.11%)
+          9033670623      L1-dcache-loads           #    2.103 G/sec                    ( +-  0.06% )  (40.08%)
+           182736986      L1-dcache-load-misses     #    2.02% of all L1-dcache accesses  ( +-  0.35% )  (40.08%)
+          4492139315      dTLB-loads                #    1.046 G/sec                    ( +-  0.07% )  (39.98%)
+             1618743      dTLB-load-misses          #    0.04% of all dTLB cache accesses  ( +-  1.64% )  (39.89%)
+              4.3046 +- 0.0226 seconds time elapsed  ( +-  0.52% )
+  
+  --------------------------------------------------------------
+   optimized
+  --------------------------------------------------------------
+  # started on Sat Sep 19 14:57:21 2026
+   Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/variants/bm_raytrace_opt.py --mode raw --loops 32 --no-gc' (5 runs):
+             3176.05 msec task-clock                #    0.998 CPUs utilized            ( +-  0.02% )
+                2339      page-faults               #  736.188 /sec                   
+                2339      minor-faults              #  736.188 /sec                   
+                   0      major-faults              #    0.000 /sec                   
+                  36      context-switches          #   11.331 /sec                     ( +-  2.97% )
+                   0      cpu-migrations            #    0.000 /sec                   
+          7400897739      cycles                    #    2.329 GHz                      ( +-  0.03% )  (49.70%)
+         22481688153      instructions              #    3.04  insn per cycle           ( +-  0.05% )  (59.77%)
+          2624183358      branches                  #  825.948 M/sec                    ( +-  0.07% )  (59.88%)
+            15694595      branch-misses             #    0.60% of all branches          ( +-  0.42% )  (60.01%)
+             2659652      cache-references          #  837.112 K/sec                    ( +-  1.72% )  (60.15%)
+              123673      cache-misses              #    4.596 % of all cache refs      ( +- 15.87% )  (60.25%)
+          7076058356      L1-dcache-loads           #    2.227 G/sec                    ( +-  0.04% )  (40.12%)
+            25875111      L1-dcache-load-misses     #    0.37% of all L1-dcache accesses  ( +-  0.46% )  (39.99%)
+          3519259927      dTLB-loads                #    1.108 G/sec                    ( +-  0.08% )  (39.85%)
+              540260      dTLB-load-misses          #    0.02% of all dTLB cache accesses  ( +-  1.62% )  (39.75%)
+             3.18244 +- 0.00186 seconds time elapsed  ( +-  0.06% )
+  
+  --------------------------------------------------------------
+   derived ratios (insn, IPC, miss rates)
+  --------------------------------------------------------------
+   baseline   instructions=27781886576      cycles=10118812257      IPC=2.7456
+   optimized  instructions=22481688153      cycles=7400897739       IPC=3.0377
+
+4.2 Symbol-level delta
+  ==============================================================================
+   SYMBOL-LEVEL DELTA (self overhead %, sampled profile)
+  ==============================================================================
+  Note: percentages are shares of each profile, so they sum to ~100 in
+  both columns. A symbol dropping to 0.00 means it was eliminated.
+  
+  symbol                                            base%     opt%     delta
+  ------------------------------------------------------------------------------
+  
+
+4.3 Differential flame graph
+    /root/HW-SW-FULL/results/latest_comparison_raytrace/diff_flame.svg
+  Red = more time in the optimized build, blue = less. Sample counts are
+  normalized (difffolded.pl -n) so the two profiles are comparable despite
+  different loop counts.
+
+4.4 pyperformance (independent harness)
+  Total duration: 1 min 7.0 sec
+  Start date: 2026-09-19 14:55:46
+  End date: 2026-09-19 14:56:56
+  Raw value minimum: 787 ms
+  Raw value maximum: 836 ms
+  
+  Number of calibration run: 1
+  Number of run with values: 20
+  Total number of run: 21
+  
+  Number of warmup per run: 1
+  Number of value per run: 3
+  Loop iterations per value: 1
+  Total number of values: 60
+  
+  Minimum:         787 ms
+  Median +- MAD:   793 ms +- 3 ms
+  Mean +- std dev: 795 ms +- 10 ms
+  Maximum:         836 ms
+  
+    0th percentile: 787 ms (-1% of the mean) -- minimum
+    5th percentile: 788 ms (-1% of the mean)
+   25th percentile: 790 ms (-1% of the mean) -- Q1
+   50th percentile: 793 ms (-0% of the mean) -- median
+   75th percentile: 796 ms (+0% of the mean) -- Q3
+
+4.5 [TODO] Interpretation
+  Explain WHY it got faster using 4.1: did instruction count fall (work
+  removed), or did IPC rise (stalls removed)? Those are different claims and
+  the counters distinguish them.
+
+
+5. HARDWARE ACCELERATION PROPOSAL
+-------------------------------------------------------------------------------
+  [TODO — this section is yours to design. The brief requires ALL of:]
+
+  5.1 Hardware description
+      RTL in Verilog / SystemVerilog / PyXHDL. Complete and logically
+      consistent; it does NOT need to be synthesizable or tape-out ready.
+      Suggested starting point given these two benchmarks: a 3-lane
+      multiply-accumulate / dot-product unit with an optional reciprocal-sqrt
+      stage, since both benchmarks reduce to dot products plus an inverse
+      magnitude. See docs/HW_PROPOSAL_NOTES.md for the measured data that
+      motivates the design and for the numbers to quote.
+
+  5.2 Inputs and outputs
+      Data widths, interfaces, expected operating frequency.
+
+  5.3 Hardware architecture
+      Main datapath plus control logic; pipeline depth and latency.
+
+  5.4 Hardware/software interface
+      How CPython reaches it: memory-mapped registers, a new instruction, a
+      DMA path? Which software layer changes — the interpreter's float ops, a
+      C extension, or an ISA intrinsic? Recall the course rule: do not expect
+      end users to change their code, and never break it.
+
+  5.5 Acceleration justification
+      Use YOUR measured numbers from sections 2 and 4: the fraction of time in
+      the target operation bounds the achievable speedup (Amdahl). State your
+      assumptions explicitly.
+
+  5.6 Block diagram
+      Accelerator, its interfaces, and its place in the overall system.
+
+  5.7 Performance / area / power trade-offs
+
+
+6. CONCLUSION
+-------------------------------------------------------------------------------
+  [TODO] Summarize: what the profiling revealed, what the software
+  optimization achieved and at what cost in readability, what the proposed
+  hardware would add on top, and where the remaining bottleneck would move to
+  afterwards (it always moves — say where).
+
+
+===============================================================================
+ ARTIFACT INDEX
+===============================================================================
+ baseline run   : /root/HW-SW-FULL/results/latest_raytrace_baseline
+ optimized run  : /root/HW-SW-FULL/results/latest_raytrace_optimized
+ comparison     : /root/HW-SW-FULL/results/latest_comparison_raytrace
+ run scripts    : script_raytrace.sh, run_all.sh
+ sources        : bench/bm_raytrace.py, variants/bm_raytrace_opt.py
+===============================================================================

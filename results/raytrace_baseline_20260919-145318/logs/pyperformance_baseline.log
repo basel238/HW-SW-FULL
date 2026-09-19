@@ -1,0 +1,70 @@
+Python benchmark suite 1.14.0
+
+Creating the virtual environment /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a
+# /root/.venvs/hwsw/bin/python3 -m venv --without-pip /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m ensurepip -v -U
+Using pip 22.0.2 from /tmp/tmpa0rvyjg6/pip-22.0.2-py3-none-any.whl/pip (python 3.10)
+Looking in links: /tmp/tmpa0rvyjg6
+Processing /tmp/tmpa0rvyjg6/setuptools-59.6.0-py3-none-any.whl
+Processing /tmp/tmpa0rvyjg6/pip-22.0.2-py3-none-any.whl
+Installing collected packages: setuptools, pip
+  changing mode of /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/pip3 to 755
+  changing mode of /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/pip3.10 to 755
+  changing mode of /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/pip3.10 to 755
+Successfully installed pip-22.0.2 setuptools-59.6.0
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip install -U 'setuptools>=18.5' wheel
+Requirement already satisfied: setuptools>=18.5 in ./venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/lib/python3.10/site-packages (59.6.0)
+Collecting setuptools>=18.5
+  Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+Collecting wheel
+  Using cached wheel-0.48.0-py3-none-any.whl (33 kB)
+Collecting packaging>=24.0
+  Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Installing collected packages: setuptools, packaging, wheel
+  Attempting uninstall: setuptools
+    Found existing installation: setuptools 59.6.0
+    Uninstalling setuptools-59.6.0:
+      Successfully uninstalled setuptools-59.6.0
+Successfully installed packaging-26.3 setuptools-84.0.0 wheel-0.48.0
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip --version
+pip 22.0.2 from /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/lib/python3.10/site-packages/pip (python 3.10)
+
+==================================================
+( 1/1) creating venv for benchmark (raytrace)
+
+(trying common venv first)
+Installing requirements into the virtual environment /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip install pyperf==2.10.0
+Collecting pyperf==2.10.0
+  Using cached pyperf-2.10.0-py3-none-any.whl (144 kB)
+Collecting psutil>=5.9.0
+  Using cached psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+Installing collected packages: psutil, pyperf
+Successfully installed psutil-7.2.2 pyperf-2.10.0
+Installing requirements into the virtual environment /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip install psutil
+Requirement already satisfied: psutil in ./venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/lib/python3.10/site-packages (7.2.2)
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip freeze
+packaging==26.3
+psutil==7.2.2
+pyperf==2.10.0
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip freeze
+packaging==26.3
+psutil==7.2.2
+pyperf==2.10.0
+
+[1/1] raytrace...
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -u /root/.venvs/hwsw/lib/python3.10/site-packages/pyperformance/data-files/benchmarks/bm_raytrace/run_benchmark.py --output /tmp/tmpnkonwdzq --inherit-environ PYPERFORMANCE_RUNID
+.....................
+raytrace: Mean +- std dev: 795 ms +- 10 ms
+
+Performance version: 1.14.0
+Python version: 3.10.12 (64-bit)
+Report on Linux-5.15.0-1106-kvm-x86_64-with-glibc2.35
+Number of logical CPUs: 1
+Start date: 2026-09-19 14:55:46.516666
+End date: 2026-09-19 14:56:56.613582
+
+### raytrace ###
+Mean +- std dev: 795 ms +- 10 ms
+

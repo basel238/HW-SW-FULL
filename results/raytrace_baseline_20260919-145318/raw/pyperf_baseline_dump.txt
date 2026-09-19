@@ -1,0 +1,105 @@
+Run 1: calibrate the number of loops: 1
+- calibrate 1: 796 ms (loops: 1, raw: 796 ms)
+- calibrate 2: 793 ms (loops: 1, raw: 793 ms)
+- calibrate 3: 793 ms (loops: 1, raw: 793 ms)
+- calibrate 4: 793 ms (loops: 1, raw: 793 ms)
+Run 2: 1 warmup, 3 values, 1 loop
+- warmup 1: 803 ms
+- value 1: 800 ms
+- value 2: 797 ms
+- value 3: 836 ms (+5%)
+Run 3: 1 warmup, 3 values, 1 loop
+- warmup 1: 803 ms
+- value 1: 796 ms
+- value 2: 798 ms
+- value 3: 798 ms
+Run 4: 1 warmup, 3 values, 1 loop
+- warmup 1: 802 ms
+- value 1: 799 ms
+- value 2: 797 ms
+- value 3: 798 ms
+Run 5: 1 warmup, 3 values, 1 loop
+- warmup 1: 793 ms
+- value 1: 789 ms
+- value 2: 789 ms
+- value 3: 789 ms
+Run 6: 1 warmup, 3 values, 1 loop
+- warmup 1: 795 ms
+- value 1: 787 ms
+- value 2: 788 ms
+- value 3: 787 ms
+Run 7: 1 warmup, 3 values, 1 loop
+- warmup 1: 794 ms
+- value 1: 790 ms
+- value 2: 834 ms
+- value 3: 803 ms
+Run 8: 1 warmup, 3 values, 1 loop
+- warmup 1: 795 ms
+- value 1: 790 ms
+- value 2: 791 ms
+- value 3: 791 ms
+Run 9: 1 warmup, 3 values, 1 loop
+- warmup 1: 799 ms
+- value 1: 824 ms
+- value 2: 814 ms
+- value 3: 798 ms
+Run 10: 1 warmup, 3 values, 1 loop
+- warmup 1: 796 ms
+- value 1: 793 ms
+- value 2: 794 ms
+- value 3: 793 ms
+Run 11: 1 warmup, 3 values, 1 loop
+- warmup 1: 795 ms
+- value 1: 791 ms
+- value 2: 792 ms
+- value 3: 791 ms
+Run 12: 1 warmup, 3 values, 1 loop
+- warmup 1: 798 ms
+- value 1: 793 ms
+- value 2: 792 ms
+- value 3: 793 ms
+Run 13: 1 warmup, 3 values, 1 loop
+- warmup 1: 792 ms
+- value 1: 790 ms
+- value 2: 788 ms
+- value 3: 789 ms
+Run 14: 1 warmup, 3 values, 1 loop
+- warmup 1: 798 ms
+- value 1: 793 ms
+- value 2: 794 ms
+- value 3: 794 ms
+Run 15: 1 warmup, 3 values, 1 loop
+- warmup 1: 795 ms
+- value 1: 792 ms
+- value 2: 790 ms
+- value 3: 792 ms
+Run 16: 1 warmup, 3 values, 1 loop
+- warmup 1: 793 ms
+- value 1: 792 ms
+- value 2: 792 ms
+- value 3: 792 ms
+Run 17: 1 warmup, 3 values, 1 loop
+- warmup 1: 795 ms
+- value 1: 791 ms
+- value 2: 790 ms
+- value 3: 789 ms
+Run 18: 1 warmup, 3 values, 1 loop
+- warmup 1: 799 ms
+- value 1: 795 ms
+- value 2: 793 ms
+- value 3: 814 ms
+Run 19: 1 warmup, 3 values, 1 loop
+- warmup 1: 794 ms
+- value 1: 789 ms
+- value 2: 790 ms
+- value 3: 789 ms
+Run 20: 1 warmup, 3 values, 1 loop
+- warmup 1: 800 ms
+- value 1: 796 ms
+- value 2: 795 ms
+- value 3: 797 ms
+Run 21: 1 warmup, 3 values, 1 loop
+- warmup 1: 800 ms
+- value 1: 795 ms
+- value 2: 794 ms
+- value 3: 794 ms

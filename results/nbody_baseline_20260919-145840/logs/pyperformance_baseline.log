@@ -1,0 +1,46 @@
+Python benchmark suite 1.14.0
+
+
+==================================================
+( 1/1) creating venv for benchmark (nbody)
+
+(trying common venv first)
+Installing requirements into the virtual environment /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip install pyperf==2.10.0
+Requirement already satisfied: pyperf==2.10.0 in ./venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/lib/python3.10/site-packages (2.10.0)
+Requirement already satisfied: psutil>=5.9.0 in ./venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/lib/python3.10/site-packages (from pyperf==2.10.0) (7.2.2)
+Installing requirements into the virtual environment /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip install psutil
+Requirement already satisfied: psutil in ./venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/lib/python3.10/site-packages (7.2.2)
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip freeze
+packaging==26.3
+psutil==7.2.2
+pyperf==2.10.0
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -m pip freeze
+packaging==26.3
+psutil==7.2.2
+pyperf==2.10.0
+
+[1/1] nbody...
+# /root/HW-SW-FULL/venv/cpython3.10-7c3fb139e0b4-compat-31b33d68c68a/bin/python -u /root/.venvs/hwsw/lib/python3.10/site-packages/pyperformance/data-files/benchmarks/bm_nbody/run_benchmark.py --output /tmp/tmp_gn2kcu_ --inherit-environ PYPERFORMANCE_RUNID
+.....................
+WARNING: the benchmark result may be unstable
+* Not enough samples to get a stable result (95% certainly of less than 1% variation)
+
+Try to rerun the benchmark with more runs, values and/or loops.
+Run 'python -m pyperf system tune' command to reduce the system jitter.
+Use pyperf stats, pyperf dump and pyperf hist to analyze results.
+Use --quiet option to hide these warnings.
+
+nbody: Mean +- std dev: 231 ms +- 3 ms
+
+Performance version: 1.14.0
+Python version: 3.10.12 (64-bit)
+Report on Linux-5.15.0-1106-kvm-x86_64-with-glibc2.35
+Number of logical CPUs: 1
+Start date: 2026-09-19 15:00:52.840118
+End date: 2026-09-19 15:01:14.648139
+
+### nbody ###
+Mean +- std dev: 231 ms +- 3 ms
+

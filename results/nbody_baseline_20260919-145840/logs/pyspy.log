@@ -1,0 +1,18 @@
+py-spy> Sampling process 999 times a second. Press Control-C to exit.
+
+py-spy> 1.00s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 1.77s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 2.55s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 3.29s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 4.04s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 4.75s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 5.53s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+py-spy> 6.28s behind in sampling, results may be inaccurate. Try reducing the sampling rate
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=8.563984 s  535.249 ms/simulation
+energy=-0.169089263
+step_rate=37.37 ksteps/s  ~11.21 MFLOP/s (est.)
+RESULT total_sec=8.563984 loops=16 ms_per_sim=535.2490 energy=-0.169089263 ksteps_per_sec=37.3658
+
+py-spy> Stopped sampling because process exited
+py-spy> Wrote flamegraph data to '/root/HW-SW-FULL/results/nbody_baseline_20260919-145840/flame/baseline_pyspy.svg'. Samples: 2130 Errors: 0

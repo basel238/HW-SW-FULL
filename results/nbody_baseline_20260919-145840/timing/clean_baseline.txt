@@ -1,0 +1,35 @@
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.191355 s  261.960 ms/simulation
+energy=-0.169089263
+step_rate=76.35 ksteps/s  ~22.90 MFLOP/s (est.)
+RESULT total_sec=4.191355 loops=16 ms_per_sim=261.9597 energy=-0.169089263 ksteps_per_sec=76.3476
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.189840 s  261.865 ms/simulation
+energy=-0.169089263
+step_rate=76.38 ksteps/s  ~22.91 MFLOP/s (est.)
+RESULT total_sec=4.189840 loops=16 ms_per_sim=261.8650 energy=-0.169089263 ksteps_per_sec=76.3752
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.189290 s  261.831 ms/simulation
+energy=-0.169089263
+step_rate=76.39 ksteps/s  ~22.92 MFLOP/s (est.)
+RESULT total_sec=4.189290 loops=16 ms_per_sim=261.8306 energy=-0.169089263 ksteps_per_sec=76.3853
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.198107 s  262.382 ms/simulation
+energy=-0.169089263
+step_rate=76.22 ksteps/s  ~22.87 MFLOP/s (est.)
+RESULT total_sec=4.198107 loops=16 ms_per_sim=262.3817 energy=-0.169089263 ksteps_per_sec=76.2248
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.188391 s  261.774 ms/simulation
+energy=-0.169089263
+step_rate=76.40 ksteps/s  ~22.92 MFLOP/s (est.)
+RESULT total_sec=4.188391 loops=16 ms_per_sim=261.7744 energy=-0.169089263 ksteps_per_sec=76.4017
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.197649 s  262.353 ms/simulation
+energy=-0.169089263
+step_rate=76.23 ksteps/s  ~22.87 MFLOP/s (est.)
+RESULT total_sec=4.197649 loops=16 ms_per_sim=262.3531 energy=-0.169089263 ksteps_per_sec=76.2332
+bodies=5 pairs=10 steps=20000 loops=16
+elapsed=4.188544 s  261.784 ms/simulation
+energy=-0.169089263
+step_rate=76.40 ksteps/s  ~22.92 MFLOP/s (est.)
+RESULT total_sec=4.188544 loops=16 ms_per_sim=261.7840 energy=-0.169089263 ksteps_per_sec=76.3989
