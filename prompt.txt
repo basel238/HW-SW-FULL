@@ -1,0 +1,164 @@
+===============================================================================
+ AI TOOL USAGE — prompts and instructions
+ HW/SW Co-design (00460882) — required deliverable
+===============================================================================
+
+Tool used: Claude (Anthropic), via an internal assistant interface.
+Purpose:   scaffolding the measurement infrastructure, and reviewing the
+           statistical methodology.
+
+This file documents what was asked, what the AI produced, what was WRONG with
+what it produced, and what was corrected. The corrections are the substantive
+part: several were found only by running the code.
+
+-------------------------------------------------------------------------------
+ PROMPT 1 — initial scope
+-------------------------------------------------------------------------------
+"Go thoroughly into the requirements of this project, and give me a solution to
+ the first 3 stages (the run scripts and wrappers). I want commands and scripts
+ to run and get the perf and flamegraph and all the results needed for analysis
+ for these benchmarks. Build me a full repo, ready for deployment and running
+ over a linux vm. Pay attention to all the details in the assignment and be very
+ thorough."
+ [Attached: Project.pdf, plus the course lecture and tutorial decks.]
+
+-------------------------------------------------------------------------------
+ PROMPT 2 — benchmark selection change
+-------------------------------------------------------------------------------
+"I want raytrace and nbody. Give me the scripts package to download and continue
+ everything else you need. Make sure the scripts don't add overhead for the
+ performance counters and analysis and checks."
+
+ -> This prompt drove the most important design decision in the repo. See
+    PHASE SEPARATION below.
+
+-------------------------------------------------------------------------------
+ PROMPT 3 — completion and validation
+-------------------------------------------------------------------------------
+"Do everything, solve the whole assignment. Take your time in validation and
+ verification. Let me know what you want me to run and do and I will."
+
+===============================================================================
+ WHAT THE AI CONTRIBUTED
+===============================================================================
+
+ * Shell infrastructure: config/bench.env, lib/common.sh, lib/pipeline.sh,
+   the four setup/ scripts, tools/{doctor,compare,gen_report}.sh.
+ * Baseline workload harnesses (bench/) with a uniform raw/calibrate/verify CLI.
+ * Optimized variants (variants/) and the rationale comments explaining each
+   transformation in terms of CPython bytecode behaviour.
+ * Documentation: README.md, docs/VM_SETUP.md, docs/PERF_GUIDE.md,
+   docs/HW_PROPOSAL_NOTES.md.
+
+===============================================================================
+ KEY DESIGN DECISION: PHASE SEPARATION (from prompt 2)
+===============================================================================
+
+The request "make sure the scripts don't add overhead" required restructuring,
+not a flag. Profilers perturb what they measure: perf record with DWARF
+unwinding adds ~10-30 % wall time, cProfile adds 2-5x. The resolution was to run
+each measurement in its own process and never quote timing from an instrumented
+run:
+
+  phase 2  clean timing   NO profiler        <- the only quotable numbers
+  phase 3  perf stat      counting mode ~1 % IPC / cache / branches
+  phase 4  perf record    sampling, high ovh flame graphs; timing DISCARDED
+  phase 5  cProfile       tracing, 2-5x      call COUNTS only
+  phase 6  pyperformance  own harness        citable mean +- stdev
+
+Phases 4-5 write their wall time to files named *_DO_NOT_QUOTE_timing.txt so it
+cannot be mistaken for a result. Reported statistic is the MEDIAN of N
+independent processes, with the run-to-run noise printed alongside; compare.sh
+refuses to endorse an improvement smaller than 2x the measured noise.
+
+===============================================================================
+ AI ERRORS FOUND AND CORRECTED
+===============================================================================
+
+These were caught by running the code, not by reading it.
+
+ 1. WRONG PHYSICS TOLERANCE (nbody verify)
+    The AI asserted absolute energy drift < 1e-6 over 1000 steps. That is
+    physically wrong: a symplectic integrator has BOUNDED, OSCILLATORY energy
+    error, not zero. The gate failed immediately (actual drift ~1.7e-4).
+    Fix: relative tolerance < 1e-3, plus a separate 1e-9 relative cross-check
+    against the baseline implementation for the reassociation-only difference.
+
+ 2. NON-BIT-EXACT "SAFE" FP OPTIMIZATION (raytrace)
+    The AI replaced three divisions with one reciprocal + three multiplies and
+    asserted this was bit-exact. It is not: (1/m)*x rounds twice, x/m once,
+    giving ~1 ULP. Because the renderer contains DISCONTINUITIES (shadow
+    hit/miss tests), that 1 ULP flipped an occlusion test at one shadow-edge
+    pixel, changing it by 118/255.
+    Fix: exact division is now the default; FAST_FP=1 opts in and deliberately
+    fails the gate, which is kept as a demonstration.
+    This became a substantive finding for the report: "safe" FP strength
+    reduction is only safe in branch-free numeric code.
+
+ 3. BASH ARRAY EXPANSION UNDER set -u  (would have broken the real VM)
+    "${EMPTY[@]}" raises "unbound variable" under set -u in bash 3.2. The
+    affected arrays (PIN when taskset is absent, ev when no perf events are
+    supported) are empty in exactly the NORMAL no-PMU QEMU case the code was
+    written to handle. The pipeline aborted at phase 0.
+    Fix: guarded all 19 expansions as ${ARR[@]+"${ARR[@]}"}, and rewrote
+    filter_supported_events to build a string rather than an array.
+
+ 4. NESTED HEREDOC MIS-PARSE (gen_report.sh)
+    A heredoc inside $(...) inside another heredoc made bash mis-associate the
+    inner delimiter, silently disabling variable expansion for the rest of the
+    outer heredoc -- ${BENCH} appeared literally in the generated report.
+    Fix: precompute the per-benchmark text into a variable before the heredoc.
+
+ 5. set -e VS grep -c
+    `grep -c '[TODO' | xargs ...` exits non-zero when the count is 0, aborting
+    the script under set -e -- i.e. it failed precisely when the report was
+    complete. Fix: capture with `|| true`.
+
+ 6. FALSE DEPENDENCY CLAIM
+    doctor.sh demanded bash >= 4 "for associative arrays". No associative array
+    is used anywhere. Fix: requirement corrected to 3.2.
+
+ 7. INVALID CPU PINNING
+    PIN_CPU=1 was used unconditionally; on a 1-vCPU guest every taskset call
+    would fail, silently killing all measurements. Fix: build_pin() clamps
+    PIN_CPU to an existing CPU and warns.
+
+===============================================================================
+ VERIFICATION PERFORMED
+===============================================================================
+
+ * bash -n on all 12 shell scripts; py_compile on all Python.
+ * Full pipeline executed end-to-end against a stub `perf` to exercise every
+   branch (including the no-PMU and no-FlameGraph paths) on a machine without
+   real perf.
+ * Correctness gates: raytrace bit-identical to baseline (SHA-256); nbody energy
+   matching to 3.3e-16 relative.
+ * Speedups measured over 5-7 independent processes with noise reported:
+       raytrace ~2.50x  (~60 % improvement), noise 0.79 %
+       nbody    ~1.20x  (~17 % improvement), noise 0.62 %
+ * Negative testing: FAST_FP=1 confirmed to FAIL the raytrace gate, proving the
+   gate is not vacuous.
+
+ NOT verified by the AI (no Linux/PMU available in its environment): real perf
+ counter values, real DWARF stack unwinding, py-spy, and pyperformance
+ integration. These were validated on the VM by me.
+
+===============================================================================
+ WHAT REMAINS MY OWN WORK
+===============================================================================
+
+ * Benchmark selection and the argument for why raytrace + nbody are
+   complementary (allocation/branch-heavy vs dispatch-bound) rather than two
+   instances of the same bottleneck.
+ * Interpretation of the profiles and the bottleneck analysis (report section 2.9).
+ * The entire hardware acceleration proposal: RTL, interfaces, operating
+   frequency, block diagram, and the performance/area/power trade-off
+   discussion. docs/HW_PROPOSAL_NOTES.md contains measured data and a design
+   sketch as a starting point; the design and its justification are mine.
+ * Conclusions, and the presentation.
+
+Per the course policy: AI was used as an aid. I am responsible for
+understanding every part of what is in this repository, and the errors listed
+above are evidence that its output required independent checking rather than
+acceptance.
+===============================================================================
