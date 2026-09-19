@@ -11,21 +11,62 @@ improvement with statistically defensible before/after measurements.
 
 ## Measured results
 
-| Benchmark  | Baseline (median) | Optimized (median) | Speedup    | Improvement | Bar   | Verdict |
-|------------|-------------------|--------------------|------------|-------------|-------|---------|
-| `raytrace` | see `results/`    | see `results/`     | **~2.50x** | **~60 %**   | ≥ 7 % | **PASS** |
-| `nbody`    | see `results/`    | see `results/`     | **~1.20x** | **~17 %**   | ≥ 7 % | **PASS** |
+All figures below come from **one identified result set**: the runs under
+`results/` on the target VM (Ubuntu 22.04 guest, KVM, Xeon E5-2630 v3, 1 vCPU,
+CPython 3.10.12). Numbers from any other machine or session are not mixed in.
 
-Both exceed the project's 7 % threshold, and both are **verified correct**:
+### Custom harness (`bench/` vs `variants/`)
 
-- `raytrace` — rendered image is **bit-identical** to the baseline (SHA-256 of the pixel buffer)
-- `nbody` — total energy matches the baseline to **3.3e-16 relative**
+| Benchmark | Work/unit base → opt | Speedup | **Time reduction** | Bar | Noise |
+|---|---|---|---|---|---|
+| `raytrace` | 257.92 → 96.40 ms/frame | 2.6756× | **62.62 %** | ≥7 % ✅ | 0.47 % |
+| `nbody` | 261.87 → 241.13 ms/sim | 1.0860× | **7.92 %** | ≥7 % ⚠️ | 0.19 % |
 
-> Numbers above were measured during development. Re-run on your VM to get your
-> own; the exact values depend on the host. The pipeline always prints the
-> run-to-run noise alongside the result so you can judge whether it is solid.
+**Time reduction** is the metric compared against the 7 % bar. Throughput gain
+is a different number (raytrace: +167.56 %) and the two must not be conflated.
 
----
+Counters, normalized per unit of work:
+
+| | raytrace | nbody |
+|---|---|---|
+| instructions/unit | −59.50 % | −2.51 % |
+| cycles/unit | −61.93 % | −7.39 % |
+| IPC | 2.80 → 2.97 | 3.06 → 3.22 |
+
+raytrace removed a large amount of executed work. nbody removed few
+instructions but more cycles, implying a cheaper mix of operations.
+
+⚠️ **nbody's margin is thin** — 0.92 percentage points over the bar. It needs a
+second measurement session before being relied upon.
+
+### Upstream pyperformance kernels (`upstream/` + `bench/bm_*_upstream.py`)
+
+`bench/bm_*.py` are **independently written stand-ins**, not the upstream
+benchmarks. Porting the optimizations onto the real kernels changes the result
+substantially. Measured ablation on the genuine upstream nbody kernel:
+
+| kernel | speedup | time reduction |
+|---|---|---|
+| upstream (control) | 1.0000× | 0.00 % |
+| `sqrt` — pow→sqrt only | 1.0360× | **3.47 %** |
+| `hoist` — subscript hoisting only | 0.9886× | **−1.15 %** (slower) |
+| `full` | 1.0247× | 2.47 % |
+
+**Upstream nbody gets ~3.5 %, below the 7 % bar.** Upstream already
+destructures coordinates at the loop head, so the flatten/hoist optimization was
+largely removing work the *custom baseline itself introduced*. raytrace has not
+yet been ported; upstream raytrace carries more overhead than the stand-in
+(`isPoint()`/`mustBeVector()` type checks per operation, a fresh list per ray),
+so its gain is expected to survive — but that is **unverified**.
+
+### Correctness
+
+- `raytrace` — rendered image **bit-identical** to baseline (SHA-256) at 32×32,
+  **100×100 (the measured size)** and 37×23, plus five geometric edge-case rays
+  agreeing on hit/miss and on bit-exact `t`
+- `nbody` — full state (30 values) agrees to `2.4e-13` relative, energy to
+  `9.5e-15`, total momentum conserved to `2.1e-15`, at the **measured 20 000
+  steps**
 
 ## Quick start (fresh Ubuntu 22.04 / jammy VM)
 
@@ -130,7 +171,7 @@ The brief asks for five things. Here is the mapping:
 | `report_<bench>.txt` | `tools/gen_report.sh` fills sections 1–4 from real data; sections 5–6 are marked `[TODO]` for you |
 | `script_<bench>.sh` | `script_raytrace.sh`, `script_nbody.sh` |
 | Flame graphs | `results/*/flame/*.svg` — plus icicle, Python-only, py-spy, and a **differential** graph |
-| ≥ 7 % improvement on ≥ 2 benchmarks | ~60 % and ~17 %, both verified correct |
+| ≥ 7 % improvement on ≥ 2 benchmarks | 62.62 % and 7.92 % against the custom harness, both verified correct. **On the real upstream nbody kernel only ~3.5 %** — see the upstream table above. |
 | AI prompts | `prompt.txt` |
 | Hardware proposal | `docs/HW_PROPOSAL_NOTES.md` gives the measured motivation; the design is yours |
 
@@ -182,13 +223,13 @@ results/comparison_<bench>_<timestamp>/
 Full rationale lives in each variant's module docstring, with every change tied
 to the profile observation that motivated it.
 
-**`raytrace` (~60 %)** — the dominant win is deleting the `Vector` class. Each
+**`raytrace` (62.62 %)** — the dominant win is deleting the `Vector` class. Each
 `a + b` cost a method dispatch, a Python frame, a heap allocation for the result,
 and later refcount/GC work. Carrying `x, y, z` as scalar locals removes all of
 it. Also: scene flattened to tuples, intersection inlined, `sqrt` bound to a
 local, quadratic solve strength-reduced to the half-`b` form.
 
-**`nbody` (~17 %)** — replaced `d2 ** -1.5` (a `libm pow()` call) with
+**`nbody` (7.92 % on the custom baseline, ~3.5 % on real upstream)** — replaced `d2 ** -1.5` (a `libm pow()` call) with
 `1/(d2*sqrt(d2))` (hardware `SQRTSD`); flattened body state into parallel scalar
 lists to turn `BINARY_SUBSCR` into `LOAD_FAST`; hoisted loop-invariant masses
 into the precomputed pair list.
@@ -213,8 +254,11 @@ instead of trusting that the output "looks fine".
 
 ### Rejected optimizations (and why)
 
-- **numpy** — both benchmarks work on 3-element vectors; numpy's ~1 µs per-call
-  overhead exceeds the cost of 3 float ops. Measured: slower.
+- **numpy** — both benchmarks work on 3-element vectors, where numpy's
+  per-call overhead (~1 µs) is expected to exceed the cost of 3 float ops.
+  **No benchmark for this is retained in the repository**, so this is stated
+  as reasoning, not as a measurement. A batched rewrite (all rays/bodies at
+  once) is a genuinely different and potentially winning design.
 - **threading** — the GIL serializes pure-Python float arithmetic.
 - **Barnes-Hut for nbody** — reduces O(n²) to O(n log n) but is an
   *approximation*, so it would invalidate the energy oracle. With n=5 it is also

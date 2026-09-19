@@ -26,6 +26,17 @@ OPT_DIR="$RESULTS_DIR/latest_${BENCH}_optimized"
 CMP_DIR="$RESULTS_DIR/latest_comparison_${BENCH}"
 OUT="$REPO_ROOT/report_${BENCH}.txt"
 
+# Do NOT clobber authored analysis. The generated file is evidence; once a
+# student fills in the [TODO] sections it becomes their work, and run_all.sh
+# regenerating it would silently destroy that.
+if [[ -f "$OUT" ]]; then
+  todo_left="$(grep -c '\[TODO' "$OUT" || true)"
+  if [[ "${todo_left:-0}" == "0" ]]; then
+    warn "$OUT has no [TODO] markers left -> it looks authored."
+    warn "Refusing to overwrite. Writing to ${OUT%.txt}.generated.txt instead."
+    OUT="${OUT%.txt}.generated.txt"
+  fi
+fi
 log "assembling $OUT"
 
 # Per-benchmark descriptive text. Kept here rather than in a data file so the
@@ -76,7 +87,19 @@ case "$BENCH" in
 esac
 
 grab() { # grab <file> <fallback-message>
-  if [[ -f "$1" ]]; then cat "$1"; else echo "$2"; fi
+  # An empty or error-only artifact must produce a clear "unavailable" note
+  # rather than leaking a tool error message into the report body.
+  if [[ -s "$1" ]]; then
+    if grep -qiE '^(Error|Fatal|perf: |WARNING: )' "$1" && \
+       [[ "$(wc -l < "$1")" -lt 5 ]]; then
+      echo "  [DATA UNAVAILABLE — the profiling step failed for this run]"
+      echo "  (tool output: $(head -1 "$1"))"
+    else
+      cat "$1"
+    fi
+  else
+    echo "$2"
+  fi
 }
 
 {
@@ -222,6 +245,7 @@ $(grab "$CMP_DIR/symbols_delta.txt" "  [no symbol delta]" | sed -n '1,45p' | sed
 
 4.4 pyperformance (independent harness)
 $(grab "$BASE_DIR/raw/pyperf_baseline_stats.txt" "  [no pyperformance data]" | sed -n '1,25p' | sed 's/^/  /')
+$( [[ -f "$BASE_DIR/raw/pyperf_baseline_stats.txt" ]] &&    grep -iE 'unstable|warning|WARNING|inconsistent|outlier'         "$BASE_DIR/raw/pyperf_baseline_stats.txt" 2>/dev/null    | sed 's/^/  !! /' || true )
 
 4.5 [TODO] Interpretation
   Explain WHY it got faster using 4.1: did instruction count fall (work

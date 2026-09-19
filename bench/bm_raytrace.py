@@ -30,12 +30,16 @@ Modes: raw | calibrate | verify
 
 import argparse
 import gc
+import os
 import hashlib
 import math
 import sys
 import time
 
-TARGET_SEC = 3.0
+# Calibration target. Read from the environment so config/bench.env
+# TARGET_SEC actually controls it; previously this was hardcoded and the
+# documented shell knob silently did nothing. Found by external review.
+TARGET_SEC = float(os.environ.get("TARGET_SEC", "3.0"))
 DEFAULT_W = 100
 DEFAULT_H = 100
 MAX_DEPTH = 3
@@ -251,15 +255,37 @@ def main():
         print(calibrate(a.width, a.height)); return 0
 
     if a.mode == "verify":
-        # Determinism gate: identical input must give an identical image, and
-        # the optimized variant must match this checksum exactly.
-        _, p1 = benchmark(1, 32, 32)
-        _, p2 = benchmark(1, 32, 32)
-        c1, c2 = checksum(p1), checksum(p2)
-        assert c1 == c2, "raytrace is not deterministic!"
-        assert len(p1) == 32 * 32 * 3, "unexpected pixel count"
-        assert any(v > 0 for v in p1), "image is entirely black"
-        print(f"verify: OK  32x32 checksum={c1[:16]} pixels={len(p1)}")
+        # Determinism gate. Tested at the MEASURED resolution as well as small
+        # sizes: an earlier version checked only 32x32 while the benchmark runs
+        # at 100x100, so a defect at the measured size could have slipped by.
+        sizes = [(32, 32), (a.width, a.height), (37, 23)]
+        for (w, h) in sizes:
+            _, q1 = benchmark(1, w, h)
+            _, q2 = benchmark(1, w, h)
+            c1, c2 = checksum(q1), checksum(q2)
+            assert c1 == c2, f"raytrace not deterministic at {w}x{h}"
+            assert len(q1) == w * h * 3, f"pixel count wrong at {w}x{h}"
+            assert any(v > 0 for v in q1), f"image entirely black at {w}x{h}"
+            print(f"  {w}x{h:<4} checksum={c1[:16]} pixels={len(q1)}")
+
+        # Geometric edge cases. These are the rays where a 1-ULP difference can
+        # flip a hit/miss decision and change a pixel by a large amount, so the
+        # baseline's behaviour on them is part of the numerical contract that any
+        # optimized variant must reproduce.
+        scene = build_scene()
+        probes = [
+            ("tangent-to-small-sphere", Vector(1.0, -0.4, -3.6), Vector(0.0, 0.0, 1.0)),
+            ("near-parallel-to-plane",  Vector(0.0, 0.0, 1.0),   Vector(1.0, -1e-6, 0.0)),
+            ("straight-down-at-plane",  Vector(0.0, 2.0, 0.0),   Vector(0.0, -1.0, 0.0)),
+            ("through-sphere-centre",   Vector(0.0, 0.0, 1.0),   Vector(0.0, 0.0, -1.0)),
+            ("away-from-scene",         Vector(0.0, 0.0, 1.0),   Vector(0.0, 1.0, 0.0)),
+        ]
+        print("  edge-case rays (nearest hit):")
+        for name, o, d in probes:
+            obj, t = nearest_hit(scene, o, d.normalize())
+            kind = "miss" if obj is None else type(obj).__name__
+            print(f"    {name:<26} {kind:<8} t={t if obj is not None else '-'}")
+        print("verify: OK")
         return 0
 
     loops = a.loops or calibrate(a.width, a.height)

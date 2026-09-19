@@ -5,7 +5,7 @@ faithful to the pyperformance `nbody` benchmark).
 
 WHAT IT IS
 ----------
-Symplectic (velocity-Verlet-style) integration of the Jovian planets plus the
+Symplectic Euler (kick-then-drift) integration of the Jovian planets plus the
 Sun, as in the classic Computer Language Benchmarks Game n-body:
 
   advance(dt):
@@ -34,10 +34,14 @@ Modes: raw | calibrate | verify
 
 import argparse
 import gc
+import os
 import sys
 import time
 
-TARGET_SEC = 3.0
+# Calibration target. Read from the environment so config/bench.env
+# TARGET_SEC actually controls it; previously this was hardcoded and the
+# documented shell knob silently did nothing. Found by external review.
+TARGET_SEC = float(os.environ.get("TARGET_SEC", "3.0"))
 DEFAULT_STEPS = 20000
 DT = 0.01
 
@@ -178,10 +182,13 @@ def main():
         print(calibrate(a.steps)); return 0
 
     if a.mode == "verify":
+        # Checked at the MEASURED step count, not a reduced one. An earlier
+        # version verified only 1000 steps while the benchmark runs 20000.
+        steps = a.steps
         pl = pairs(len(SYSTEM_ORDER))
         b = fresh_system(); offset_momentum(b, SOLAR_MASS)
         e0 = report_energy(b, pl)
-        advance(DT, 1000, b, pl)
+        advance(DT, steps, b, pl)
         e1 = report_energy(b, pl)
         # Energy drift is the physics correctness check. This integrator is
         # symplectic, so energy error is BOUNDED and oscillatory rather than
@@ -191,12 +198,35 @@ def main():
         rel = drift / abs(e0) if e0 else drift
         assert rel < 1e-3, (f"energy not conserved: e0={e0:.9f} e1={e1:.9f} "
                             f"abs={drift:.3e} rel={rel:.3e}")
-        # Determinism check: bit-identical energy from identical inputs.
+        # Determinism over the FULL STATE, not just energy. Energy is a scalar
+        # summary: two different configurations can share an energy value, so
+        # energy agreement alone cannot establish positions and velocities.
+        def snapshot(bodies):
+            out = []
+            for (p_, v_, m_) in bodies:
+                out.extend([p_[0], p_[1], p_[2], v_[0], v_[1], v_[2]])
+            return out
+
+        s1 = snapshot(b)
         b2 = fresh_system(); offset_momentum(b2, SOLAR_MASS)
-        advance(DT, 1000, b2, pl)
-        assert report_energy(b2, pl) == e1, "nbody is not deterministic!"
-        print(f"verify: OK  e_initial={e0:.9f} e_final={e1:.9f} "
-              f"abs_drift={drift:.3e} rel_drift={rel:.3e}")
+        advance(DT, steps, b2, pl)
+        assert report_energy(b2, pl) == e1, "nbody energy not deterministic!"
+        assert snapshot(b2) == s1, "nbody STATE not deterministic!"
+
+        # Momentum conservation: an independent physical invariant. After
+        # offset_momentum the total momentum is ~0 and must stay there.
+        px = sum(v_[0] * m_ for (_p, v_, m_) in b)
+        py = sum(v_[1] * m_ for (_p, v_, m_) in b)
+        pz = sum(v_[2] * m_ for (_p, v_, m_) in b)
+        pmag = (px * px + py * py + pz * pz) ** 0.5
+        assert pmag < 1e-12, f"momentum not conserved: |p|={pmag:.3e}"
+
+        print(f"verify: OK  steps={steps}")
+        print(f"  e_initial={e0!r}")
+        print(f"  e_final  ={e1!r}")
+        print(f"  rel_drift={rel:.3e}  (symplectic: bounded, not zero)")
+        print(f"  state deterministic over {len(s1)} values")
+        print(f"  |total momentum| = {pmag:.3e}")
         return 0
 
     loops = a.loops or calibrate(a.steps)

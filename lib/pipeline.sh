@@ -14,9 +14,17 @@ run_variant() {
   local extra=("$@")
 
   init_run "$bench" "$variant"
-  require_perf
-  require_python_dbg
-  probe_pmu
+  # Only demand perf if a phase that USES perf is enabled. Previously
+  # --time-only still failed without perf, contradicting its own purpose.
+  if [[ "$ENABLE_PERF_STAT" == "1" || "$ENABLE_PERF_RECORD" == "1" \
+        || "$ENABLE_CACHE_PROFILE" == "1" ]]; then
+    require_perf
+    require_python_dbg
+    probe_pmu
+  else
+    log "perf phases disabled -> skipping perf preconditions and PMU probe"
+    PMU_OK=0; PERF_EVENTS=""; export PMU_OK PERF_EVENTS
+  fi
   capture_env
 
   # --- Phase 1: correctness BEFORE performance -------------------------------

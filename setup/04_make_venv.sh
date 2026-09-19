@@ -20,7 +20,14 @@ source "$VENV_DIR/bin/activate"
 echo "==> installing pyperformance"
 pip install --upgrade pip setuptools wheel
 # pyperformance pulls in pyperf (the statistics/JSON harness) transitively.
-pip install "pyperformance>=1.11" "pyperf>=2.6"
+# PINNED versions. An unpinned install makes a result set unreproducible: a
+# later pyperformance release can change a benchmark's workload or harness.
+# 1.14.0 is the version that produced the results in results/ (see the pyperf
+# metadata in raw/pyperf_*.json).
+PYPERFORMANCE_VERSION="${PYPERFORMANCE_VERSION:-1.14.0}"
+pip install "pyperformance==${PYPERFORMANCE_VERSION}"
+echo "  pinned pyperformance==${PYPERFORMANCE_VERSION}"
+echo "  (override with PYPERFORMANCE_VERSION=x.y.z if a different one is required)"
 
 echo
 echo "==> verification"
@@ -41,6 +48,10 @@ for b in $PROJECT_BENCHES; do
 done
 
 echo
+# Record exactly what was installed, so a result set can be reproduced.
+pip freeze > "$VENV_DIR/requirements.lock.txt" 2>/dev/null || true
+echo "  dependency lock -> $VENV_DIR/requirements.lock.txt"
+
 echo "venv ready. The run scripts activate it automatically."
 echo "next: ./run_all.sh        (full pipeline)"
 echo "  or: ./script_deepcopy.sh --help"

@@ -16,10 +16,22 @@ if [[ -d "$FLAMEGRAPH_DIR/.git" ]]; then
   git -C "$FLAMEGRAPH_DIR" pull --ff-only || echo "   (pull failed, using existing copy)"
 else
   echo "==> cloning FlameGraph into $FLAMEGRAPH_DIR"
-  git clone --depth 1 https://github.com/brendangregg/FlameGraph "$FLAMEGRAPH_DIR"
+  # --depth 1 tracks a MOVING target: the tool version is not recorded, so a
+  # result set cannot be reproduced exactly. Clone fully and record the commit.
+  git clone https://github.com/brendangregg/FlameGraph "$FLAMEGRAPH_DIR"
+  if [[ -n "${FLAMEGRAPH_COMMIT:-}" ]]; then
+    git -C "$FLAMEGRAPH_DIR" checkout -q "$FLAMEGRAPH_COMMIT" \
+      && echo "  pinned to $FLAMEGRAPH_COMMIT"
+  fi
 fi
 
 chmod +x "$FLAMEGRAPH_DIR"/*.pl 2>/dev/null || true
+
+# Record the exact tool version used, for the report's reproducibility section.
+FG_COMMIT="$(git -C "$FLAMEGRAPH_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+echo "$FG_COMMIT" > "$FLAMEGRAPH_DIR/.pinned-commit" 2>/dev/null || true
+echo "  FlameGraph commit: $FG_COMMIT"
+echo "  (pin it for future clones with: export FLAMEGRAPH_COMMIT=$FG_COMMIT)"
 
 echo
 echo "==> verification"

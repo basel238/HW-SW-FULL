@@ -47,6 +47,72 @@ chk "taskset (CPU pinning)" "command -v taskset" soft \
     "util-linux; without it runs are noisier"
 chk "hardware PMU"         "perf stat -e cycles true" soft \
     "restart QEMU with -enable-kvm -cpu host -> no IPC/cache data without it"
+if [[ "$CALLGRAPH" == "fp" ]]; then
+  printf '  %-34s %sWARN%s CALLGRAPH=fp is unusable on CPython\n' \
+         "unwind method" "$C_Y" "$C_RST"
+  echo "         CPython is built -fomit-frame-pointer; use CALLGRAPH=dwarf"
+  SOFT=$((SOFT+1))
+fi
+
+hdr "preflight — perf sampling capability"
+# Counting and SAMPLING are different capabilities. An earlier version inferred
+# both from `perf stat` alone, which is why a host that counted perfectly but
+# could not sample produced silently empty flame graphs.
+SPROBE="/tmp/.doctor_sample.$$.data"
+SMODE="${PERF_RECORD_MODE:-period}"
+if [[ "$SMODE" == "period" ]]; then
+  SARGS=(-e "${PERF_RECORD_EVENT:-cycles}" -c "${SAMPLE_PERIOD:-5000000}")
+else
+  SARGS=(-F "$SAMPLE_FREQ")
+fi
+if perf record "${SARGS[@]}" -o "$SPROBE" -- \
+     "$PY_REL" "$REPO_ROOT/bench/bm_nbody.py" --mode raw --loops 1 \
+     --steps 3000 --no-gc >/dev/null 2>&1; then
+  NS="$(perf report -i "$SPROBE" --stdio 2>/dev/null \
+        | grep -m1 -oE '^# Samples: [0-9.]+[KMG]?' | sed 's/^# Samples: //')"
+  case "$NS" in
+    *K) NSN=$(awk -v v="${NS%K}" 'BEGIN{printf "%d", v*1000}') ;;
+    *M) NSN=$(awk -v v="${NS%M}" 'BEGIN{printf "%d", v*1000000}') ;;
+    "") NSN=0 ;;
+    *)  NSN="${NS%%.*}" ;;
+  esac
+  if (( NSN > 0 )); then
+    printf '  %-34s %sOK%s (%s samples, mode=%s)\n' "sampling works" "$C_G" "$C_RST" "$NS" "$SMODE"
+  else
+    printf '  %-34s %sFAIL%s mode=%s captured 0 samples\n' "sampling works" "$C_R" "$C_RST" "$SMODE"
+    echo "         -> set PERF_RECORD_MODE=period in config/bench.env"
+    echo "         -> or PERF_RECORD_EVENT=cpu-clock if the PMU cannot sample"
+    HARD=$((HARD+1))
+  fi
+else
+  printf '  %-34s %sFAIL%s perf record failed outright\n' "sampling works" "$C_R" "$C_RST"
+  HARD=$((HARD+1))
+fi
+
+# Stack-unwind fidelity. CPython is built -fomit-frame-pointer, so CALLGRAPH=fp
+# truncates stacks at 2-3 frames and the "flame graph" becomes a flat profile in
+# disguise. MEASURED on the target VM: fp -> avg depth 2.5, dwarf -> 71.2.
+UPROBE="/tmp/.doctor_unwind.$$.data"
+UCG=(--call-graph "$CALLGRAPH")
+[[ "$CALLGRAPH" == "dwarf" ]] && UCG=(--call-graph "dwarf,$DWARF_STACK_BYTES")
+if perf record "${SARGS[@]}" "${UCG[@]}" -o "$UPROBE" -- \
+     "$PY_DBG" "$REPO_ROOT/bench/bm_nbody.py" --mode raw --loops 1 \
+     --steps 3000 --no-gc >/dev/null 2>&1; then
+  DEPTH="$(perf script -i "$UPROBE" 2>/dev/null \
+           | awk '/^$/{if(d){s+=d;n++;d=0};next} /^\t/{d++} END{if(n)printf "%.1f", s/n}')"
+  if [[ -n "$DEPTH" ]] && awk -v a="$DEPTH" 'BEGIN{exit !(a >= 5)}'; then
+    printf '  %-34s %sOK%s (avg depth %s, %s)\n' "call-graph unwinding" "$C_G" "$C_RST" "$DEPTH" "$CALLGRAPH"
+  else
+    printf '  %-34s %sWARN%s avg depth %s with %s -- too shallow\n' \
+           "call-graph unwinding" "$C_Y" "$C_RST" "${DEPTH:-0}" "$CALLGRAPH"
+    echo "         -> set CALLGRAPH=dwarf (CPython has no frame pointers)"
+    SOFT=$((SOFT+1))
+  fi
+else
+  printf '  %-34s %sSKIP%s could not probe\n' "call-graph unwinding" "$C_Y" "$C_RST"
+  SOFT=$((SOFT+1))
+fi
+rm -f "$SPROBE" "$UPROBE" >/dev/null 2>&1 || true
 
 hdr "preflight — measurement hygiene"
 P="$(cat /proc/sys/kernel/perf_event_paranoid 2>/dev/null || echo 3)"

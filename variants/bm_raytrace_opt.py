@@ -10,7 +10,11 @@ WHAT WAS CHANGED AND WHY
 ------------------------
 
 [O1] ELIMINATE THE Vector CLASS. Carry x,y,z as three separate local floats.
-     Profile evidence: baseline flame graph is dominated by Vector.__add__,
+     Profile evidence (MEASURED, leaf attribution from perf + cProfile
+     call counts; note that call-graph HIERARCHY was not usable until
+     CALLGRAPH=dwarf was fixed, so the causal chains below are inferred
+     from leaf shares and call counts, not from measured stacks):
+     baseline flame graph is dominated by Vector.__add__,
      __sub__, __mul__, dot, normalize; cProfile shows millions of calls, and
      report_*_self.txt shows the interpreter's call machinery
      (_PyObject_MakeTpCall, type_call, tp_new) high in self time.
@@ -19,6 +23,11 @@ WHAT WAS CHANGED AND WHY
      result, and later a GC/refcount decref. Replacing it with three
      scalar-local subtractions removes ALL of that: no frame, no allocation,
      no refcounting. This is the dominant win.
+     SCOPE, precisely: this removes VECTOR CONTAINER objects, their
+     special-method dispatch and their attribute lookups. It does NOT
+     remove all allocation or all dispatch -- Python floats are still
+     boxed heap objects that are allocated, refcounted and freed, and
+     every arithmetic operation still goes through the interpreter.
      Trade-off, stated honestly: the code is markedly less readable. That is
      the real cost of this optimization and worth saying out loud.
 
@@ -65,7 +74,10 @@ are not guaranteed bit-identical in general. They happen to be here because the
 final pixel values are quantized to 8 bits via int(x*255), which absorbs
 differences far below 1/255. The verify mode asserts checksum equality, so if a
 future edit breaks this the gate catches it. If you want a provably exact
-variant, set STRICT_FP=1 to use the unreduced forms.
+variant, the exact forms are already the DEFAULT; FAST_FP=1 opts out of them.
+(An earlier draft of this file documented a STRICT_FP=1 switch. That variable is
+now DERIVED from FAST_FP and is not read from the environment -- documenting it
+as a user-facing knob was wrong. Flagged by external review.)
 
 NOT DONE (and why — good presentation material)
 -----------------------------------------------
@@ -85,7 +97,10 @@ import sys
 import time
 from math import floor, sqrt
 
-TARGET_SEC = 3.0
+# Calibration target. Read from the environment so config/bench.env
+# TARGET_SEC actually controls it; previously this was hardcoded and the
+# documented shell knob silently did nothing. Found by external review.
+TARGET_SEC = float(os.environ.get("TARGET_SEC", "3.0"))
 DEFAULT_W = 100
 DEFAULT_H = 100
 MAX_DEPTH = 3
@@ -101,10 +116,15 @@ STRICT_FP = not FAST_FP
 # ---------------------------------------------------------------------------
 def build_scene_flat():
     spheres = (
-        (0.0, 0.0, -5.0, 1.0, 1.0, 0.2, 0.2, 0.4, 1.0),
-        (2.0, 0.5, -7.0, 1.2, 0.2, 1.0, 0.3, 0.6, 1.44),
-        (-2.2, 0.2, -6.0, 0.9, 0.2, 0.3, 1.0, 0.5, 0.81),
-        (0.6, -0.4, -3.5, 0.4, 1.0, 1.0, 0.2, 0.3, 0.16),
+        (0.0, 0.0, -5.0, 1.0, 1.0, 0.2, 0.2, 0.4, 1.0 * 1.0),
+        (2.0, 0.5, -7.0, 1.2, 0.2, 1.0, 0.3, 0.6, 1.2 * 1.2),
+        (-2.2, 0.2, -6.0, 0.9, 0.2, 0.3, 1.0, 0.5, 0.9 * 0.9),
+        # r2 MUST be computed as r*r, not written as a decimal literal:
+        # 0.4*0.4 == 0.16000000000000003, which is NOT equal to 0.16. The
+        # literal shrinks the sphere by ~3e-17, and a tangent ray at
+        # origin (1.0,-0.4,-3.6) dir (0,0,1) that HITS in the baseline
+        # (t=0.09999999705) MISSES here. Found by external review.
+        (0.6, -0.4, -3.5, 0.4, 1.0, 1.0, 0.2, 0.3, 0.4 * 0.4),
     )
     plane = (-1.2, 0.9, 0.9, 0.9, 0.15, 0.15, 0.15, 0.2)  # height, c1 rgb, c2 rgb, reflect
     light = (-4.0, 6.0, 1.0)
@@ -139,7 +159,10 @@ def nearest_hit_flat(ox, oy, oz, dx, dy, dz, spheres, plane, _sqrt=sqrt):
         idx += 1
 
     # plane
-    if dy < -1e-6 or dy > 1e-6:
+    # Must mirror the baseline EXACTLY: `if abs(direction.y) < 1e-6: return None`
+    # rejects only |dy| strictly below the epsilon, so |dy| == 1e-6 is ACCEPTED.
+    # The previous form (dy < -1e-6 or dy > 1e-6) excluded that boundary.
+    if not (-1e-6 <= dy <= 1e-6):
         t = (plane[0] - oy) / dy
         if 1e-6 < t < best_t:
             best_t = t; best_kind = 2; best_idx = 0
@@ -285,30 +308,64 @@ def main():
         print(calibrate(a.width, a.height)); return 0
 
     if a.mode == "verify":
-        _, p1 = benchmark(1, 32, 32)
-        _, p2 = benchmark(1, 32, 32)
-        c1 = checksum(p1)
-        assert c1 == checksum(p2), "optimized raytrace is not deterministic!"
-
-        # THE REAL GATE: pixel-identical to the baseline renderer.
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                         "..", "bench"))
         import bm_raytrace as base
-        _, bp = base.benchmark(1, 32, 32)
-        bc = base.checksum(bp)
-        if bc != c1:
-            # Report how far off we are, to distinguish "1-LSB rounding" from
-            # "actually broken".
-            diffs = [abs(x - y) for x, y in zip(bp, p1)]
-            worst = max(diffs) if diffs else 0
-            nbad = sum(1 for d in diffs if d)
-            raise AssertionError(
-                f"OPTIMIZED IMAGE DIFFERS FROM BASELINE\n"
-                f"  baseline sha={bc[:16]} optimized sha={c1[:16]}\n"
-                f"  {nbad}/{len(diffs)} channels differ, worst delta={worst}\n"
-                f"  unset FAST_FP to use the exact-division (bit-identical) form.")
-        print(f"verify: OK  32x32 checksum={c1[:16]} pixels={len(p1)}")
-        print(f"cross-check vs baseline: BIT-IDENTICAL (sha256 match)")
+
+        # Checked at the MEASURED resolution as well as small and odd sizes.
+        # An earlier version verified only 32x32 while the benchmark renders
+        # 100x100, so a defect at the measured size could have slipped through.
+        for (w, h) in [(32, 32), (a.width, a.height), (37, 23)]:
+            _, q1 = benchmark(1, w, h)
+            _, q2 = benchmark(1, w, h)
+            c1 = checksum(q1)
+            assert c1 == checksum(q2), f"optimized not deterministic at {w}x{h}"
+
+            # THE REAL GATE: pixel-identical to the baseline renderer.
+            _, bp = base.benchmark(1, w, h)
+            bc = base.checksum(bp)
+            if bc != c1:
+                diffs = [abs(x - y) for x, y in zip(bp, q1)]
+                worst = max(diffs) if diffs else 0
+                nbad = sum(1 for d in diffs if d)
+                raise AssertionError(
+                    f"OPTIMIZED IMAGE DIFFERS FROM BASELINE at {w}x{h}\n"
+                    f"  baseline sha={bc[:16]} optimized sha={c1[:16]}\n"
+                    f"  {nbad}/{len(diffs)} channels differ, worst delta={worst}\n"
+                    f"  unset FAST_FP to use the exact-division form.")
+            print(f"  {w}x{h:<4} sha={c1[:16]} BIT-IDENTICAL to baseline")
+
+        # Geometric edge cases: rays where a 1-ULP difference can flip a
+        # hit/miss decision. The optimized nearest-hit must agree with the
+        # baseline on every one of them, not merely on the average image.
+        bscene = base.build_scene()
+        oscene = build_scene_flat()
+        probes = [
+            ("tangent-to-small-sphere", (1.0, -0.4, -3.6), (0.0, 0.0, 1.0)),
+            ("near-parallel-to-plane",  (0.0, 0.0, 1.0),   (1.0, -1e-6, 0.0)),
+            ("straight-down-at-plane",  (0.0, 2.0, 0.0),   (0.0, -1.0, 0.0)),
+            ("through-sphere-centre",   (0.0, 0.0, 1.0),   (0.0, 0.0, -1.0)),
+            ("away-from-scene",         (0.0, 0.0, 1.0),   (0.0, 1.0, 0.0)),
+        ]
+        print("  edge-case rays:")
+        for name, (ox, oy, oz), (dx0, dy0, dz0) in probes:
+            bd = base.Vector(dx0, dy0, dz0).normalize()
+            bobj, bt = base.nearest_hit(bscene, base.Vector(ox, oy, oz), bd)
+            k, _i, t = nearest_hit_flat(ox, oy, oz, bd.x, bd.y, bd.z,
+                                        oscene[0], oscene[1])
+            bhit = bobj is not None
+            ohit = k != 0
+            status = "AGREE" if bhit == ohit else "*** DIVERGENT ***"
+            assert bhit == ohit, (
+                f"{name}: baseline {'HIT' if bhit else 'MISS'} but "
+                f"optimized {'HIT' if ohit else 'MISS'}")
+            # When both hit, t must match bit-for-bit: any difference here means
+            # the quadratic solve was altered, not just the shading.
+            if bhit:
+                assert bt == t, f"{name}: t differs {bt!r} vs {t!r}"
+            print(f"    {name:<26} {'HIT' if bhit else 'MISS':<5} {status}")
+
+        print("verify: OK")
         print(f"fp_mode={'FAST_FP (reciprocal, ~1ULP)' if FAST_FP else 'exact division (bit-identical)'}")
         return 0
 

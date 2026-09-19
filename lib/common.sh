@@ -52,7 +52,9 @@ init_run() {
   RUN_DIR="$RESULTS_DIR/$RUN_TAG"
   mkdir -p "$RUN_DIR"/{perf,flame,logs,raw,timing}
   export RUN_DIR RUN_TAG BENCH="$bench" VARIANT="$variant"
-  ln -sfn "$RUN_DIR" "$RESULTS_DIR/latest_${bench}_${variant}"
+  # Relative target: absolute /root/... symlinks break the moment the
+  # results tree is copied off the VM.
+  ( cd "$RESULTS_DIR" && ln -sfn "$RUN_TAG" "latest_${bench}_${variant}" )
   log "run dir: $RUN_DIR"
 }
 
@@ -93,7 +95,18 @@ capture_env() {
     echo; echo "--- measurement config ---"
     echo "SAMPLE_FREQ=$SAMPLE_FREQ  CALLGRAPH=$CALLGRAPH  TARGET_SEC=$TARGET_SEC"
     echo "CLEAN_REPS=$CLEAN_REPS  REPS=$REPS  LOOPS=${LOOPS:-auto}"
-    echo "PIN_CPU=$PIN_CPU  USE_TASKSET=$USE_TASKSET"
+    # Record both requested and effective values: build_pin() clamps PIN_CPU to
+    # an existing CPU, so the requested value alone can misdescribe the run.
+    echo "PIN_CPU requested=$PIN_CPU  effective=$( \
+        n=$(nproc 2>/dev/null || echo 1); \
+        if [[ "$USE_TASKSET" == "1" ]] && command -v taskset >/dev/null 2>&1; then \
+          if (( PIN_CPU >= n )); then echo "$((n-1)) (clamped from $PIN_CPU)"; \
+          else echo "$PIN_CPU"; fi; \
+        else echo "none (taskset disabled or absent)"; fi)"
+    echo "USE_TASKSET=$USE_TASKSET  nproc=$(nproc 2>/dev/null || echo '?')"
+    echo "sampling: PERF_RECORD_MODE=${PERF_RECORD_MODE:-?} "\
+         "SAMPLE_PERIOD=${SAMPLE_PERIOD:-?} EVENT=${PERF_RECORD_EVENT:-auto}"
+    echo "unwind:   CALLGRAPH=$CALLGRAPH DWARF_STACK_BYTES=${DWARF_STACK_BYTES:-n/a}"
     echo "PYTHONHASHSEED=$PYTHONHASHSEED_VALUE  DISABLE_GC=$DISABLE_GC"
     echo
     echo "TIMING POLICY: quote only phase2_clean (results/timing/clean_*.txt)."
@@ -189,6 +202,9 @@ build_pin() {
 }
 
 py_env() {
+  # TARGET_SEC must be exported: the Python calibrators read it from the
+  # environment. Without this the config knob has no effect.
+  export TARGET_SEC
   export PYTHONHASHSEED="$PYTHONHASHSEED_VALUE"
   export PYTHONDONTWRITEBYTECODE=1   # no .pyc writes mid-measurement
   export PYTHONUNBUFFERED=1
@@ -198,7 +214,13 @@ py_env() {
 workload_args() {
   local script="$1"; shift
   WL=("$script" "$@")
-  [[ "$DISABLE_GC" == "1" ]] && WL+=(--no-gc)
+  # NOTE the explicit if/fi. Written as `[[ ... ]] && WL+=(...)` the function
+  # returns 1 whenever DISABLE_GC != 1, and under `set -e` that aborts the whole
+  # run -- i.e. the documented DISABLE_GC=0 option was fatal. Found by review.
+  if [[ "$DISABLE_GC" == "1" ]]; then
+    WL+=(--no-gc)
+  fi
+  return 0
 }
 
 # =============================================================================
@@ -332,16 +354,16 @@ run_perf_record() {
   local cg=(--call-graph "$CALLGRAPH")
   [[ "$CALLGRAPH" == "dwarf" ]] && cg=(--call-graph "dwarf,$DWARF_STACK_BYTES")
 
-  # On a partially-emulated KVM PMU, frequency mode (-F) with the auto-chosen
-  # precise event can capture ZERO samples while perf still exits 0. Fixed
-  # period mode (-c) is robust. See PERF_RECORD_MODE in config/bench.env.
+  # Sampling selector. On the target VM's partially-emulated PMU, frequency
+  # mode (-F) captured ZERO samples while perf exited 0; fixed period (-c) works.
   local samp=() sev=()
-  if [[ "${PERF_RECORD_MODE:-freq}" == "period" ]]; then
-    samp=(-c "${SAMPLE_PERIOD:-2000000}")
-    [[ -n "${PERF_RECORD_EVENT:-}" ]] && sev=(-e "$PERF_RECORD_EVENT")
+  if [[ "${PERF_RECORD_MODE:-period}" == "period" ]]; then
+    samp=(-c "${SAMPLE_PERIOD:-5000000}")
   else
     samp=(-F "$SAMPLE_FREQ")
   fi
+  [[ -n "${PERF_RECORD_EVENT:-}" ]] && sev=(-e "$PERF_RECORD_EVENT")
+
   log "perf record ${sev[*]-} ${samp[*]} --call-graph $CALLGRAPH (loops=$rloops, $PY_DBG)"
   if ! perf record ${sev[@]+"${sev[@]}"} ${samp[@]+"${samp[@]}"} ${cg[@]+"${cg[@]}"} -m "$PERF_MMAP_PAGES" \
         --output="$data" -- ${PIN[@]+"${PIN[@]}"} "$PY_DBG" ${WL[@]+"${WL[@]}"} \
@@ -358,23 +380,31 @@ run_perf_record() {
     warn "LOST SAMPLES detected -> flame graph may be skewed."
     warn "raise PERF_MMAP_PAGES (now $PERF_MMAP_PAGES) or lower SAMPLE_FREQ."
   fi
-  # A zero-sample perf.data is the worst failure mode here: perf exits 0 and
-  # every downstream artifact is silently empty. Detect it and retry on the
-  # software event, which does not depend on the hardware PMU.
-  local nsamp
-  nsamp="$(perf report -i "$data" --stdio 2>/dev/null | grep -oE '^# Samples: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
-  [[ -n "$nsamp" ]] || nsamp=0
-  if (( nsamp == 0 )); then
-    err "perf record captured ZERO samples -> no flame graph possible."
-    warn "retrying with the cpu-clock SOFTWARE event (PMU-independent)..."
-    if perf record -e cpu-clock -c 1000000 ${cg[@]+"${cg[@]}"} -m "$PERF_MMAP_PAGES" \
-         --output="$data" -- ${PIN[@]+"${PIN[@]}"} "$PY_DBG" ${WL[@]+"${WL[@]}"} \
-         > "$RUN_DIR/logs/${tag}_record_retry.log" 2>&1; then
-      nsamp="$(perf report -i "$data" --stdio 2>/dev/null | grep -oE '^# Samples: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
-      [[ -n "$nsamp" ]] || nsamp=0
-    fi
-    (( nsamp == 0 )) && { err "still zero samples; skipping flame graph."; return 0; }
-    ok "fallback succeeded: $nsamp samples via cpu-clock"
+  # perf prints "# Samples: 3K" -- the K/M/G suffix MUST be normalized or a
+  # healthy run reports "3 samples". Anchor on '^# Samples:' so we do not match
+  # the '# Total Lost Samples:' line that precedes it.
+  local raw nsamp
+  raw="$(perf report -i "$data" --stdio 2>/dev/null \
+         | grep -m1 -oE '^# Samples: [0-9.]+[KMG]?' | sed 's/^# Samples: //')"
+  case "$raw" in
+    *K) nsamp=$(awk -v v="${raw%K}" 'BEGIN{printf "%d", v*1000}') ;;
+    *M) nsamp=$(awk -v v="${raw%M}" 'BEGIN{printf "%d", v*1000000}') ;;
+    *G) nsamp=$(awk -v v="${raw%G}" 'BEGIN{printf "%d", v*1000000000}') ;;
+    "") nsamp=0 ;;
+    *)  nsamp="${raw%%.*}" ;;
+  esac
+
+  # NO automatic event substitution. A flame graph silently built from a
+  # different event than requested is worse than no flame graph, so this fails
+  # loudly and tells you exactly which knob to change.
+  if (( nsamp < ${MIN_SAMPLES:-200} )); then
+    err "perf record captured only ${nsamp} samples (minimum ${MIN_SAMPLES:-200})."
+    err "NOT substituting another event. Fix the configuration instead:"
+    err "    PERF_RECORD_MODE=period       # if currently freq"
+    err "    SAMPLE_PERIOD=<smaller>       # currently ${SAMPLE_PERIOD:-?}"
+    err "    PERF_RECORD_EVENT=cpu-clock   # only if the PMU cannot sample"
+    err "Flame graph SKIPPED for ${tag}."
+    return 0
   fi
   ok "$(du -h "$data" 2>/dev/null | cut -f1) perf.data, $nsamp samples"
 
@@ -396,8 +426,23 @@ make_reports() {
   # Symbol CSV -> consumed by tools/compare.sh for before/after diffing.
   perf report --stdio --no-children -i "$data" -F overhead,dso,symbol -t, 2>/dev/null \
       | grep -v '^#' | sed '/^$/d' > "$rp/report_${tag}_symbols.csv" || true
-  # Raw samples: input to stackcollapse and to any custom analysis.
+  # Raw samples -> input to stackcollapse. THIS IS THE SLOW STEP: DWARF
+  # unwinding is deferred to post-processing, measured at ~0.6 s/sample with a
+  # 16 KB stack slice on the target VM (halved by DWARF_STACK_BYTES=8192).
+  local est; est=$(awk -v n="${nsamp:-0}" 'BEGIN{printf "%d", n*0.3}')
+  log "perf script (DWARF unwind of ${nsamp:-?} samples, est. ~${est}s -- be patient)"
   perf script -i "$data" > "$rp/${tag}_script.txt" 2>/dev/null || true
+  local avg
+  avg=$(awk '/^$/{if(d){s+=d;n++;d=0};next} /^\t/{d++} END{if(n)printf "%.1f", s/n}' \
+        "$rp/${tag}_script.txt" 2>/dev/null)
+  if [[ -n "$avg" ]]; then
+    log "average stack depth: $avg"
+    # A mean depth this shallow means unwinding failed and the "flame graph"
+    # would be a flat profile in disguise. Measured: fp=2.5, dwarf=71.2.
+    awk -v a="$avg" 'BEGIN{exit !(a < 5)}' && {
+      warn "stack depth $avg is implausibly shallow -> unwinding is failing."
+      warn "Set CALLGRAPH=dwarf (CPython has no frame pointers)."; }
+  fi
   ok "reports: report_${tag}{,_self,_callers,_dso}.txt + symbols.csv"
 }
 
@@ -472,7 +517,11 @@ run_cprofile() {
 
   build_pin; py_env
   # Far fewer loops: we want counts and the call tree, not a long run.
+  # cProfile runs FEWER loops than the timed phases (tracing is 2-5x slower).
+  # That means its call counts and totals are NOT comparable to another
+  # variant's unless divided by this number, so record it next to the output.
   local cloops=$(( loops / 10 )); (( cloops < 1 )) && cloops=1
+  echo "$cloops" > "$RUN_DIR/raw/cprofile_${VARIANT}_loops.txt"
   workload_args "$script" --mode raw --loops "$cloops"
   local pstats="$RUN_DIR/raw/cprofile_${VARIANT}.pstats"
 
@@ -490,7 +539,21 @@ st.sort_stats("cumtime").print_stats(25)
 print("=" * 70); print("CALLEES OF THE 15 HOTTEST FUNCTIONS"); print("=" * 70)
 st.sort_stats("tottime").print_callees(15)
 PY
-    ok "-> raw/cprofile_${VARIANT}.txt"
+    # Prepend the normalization header: an earlier version left readers to
+    # compare raw totals from runs with different loop counts.
+    { echo "# cProfile for $BENCH/$VARIANT"
+      echo "# LOOPS IN THIS PROFILE: $cloops"
+      echo "#"
+      echo "# Divide ncalls and tottime by $cloops for per-unit figures."
+      echo "# Comparing raw totals against another variant is INVALID unless"
+      echo "# both were profiled with the same loop count."
+      echo "#"
+      echo "# cProfile TIMING is inflated 2-5x by tracing overhead. Use this"
+      echo "# file for CALL COUNTS only; quote timing from timing/clean_*."
+      echo
+      cat "$RUN_DIR/raw/cprofile_${VARIANT}.txt"
+    } > "$RUN_DIR/raw/.cp.tmp" && mv "$RUN_DIR/raw/.cp.tmp" "$RUN_DIR/raw/cprofile_${VARIANT}.txt"
+    ok "-> raw/cprofile_${VARIANT}.txt (loops=$cloops, normalize before comparing)"
     grep -A12 'TOP 40 BY TOTTIME' "$RUN_DIR/raw/cprofile_${VARIANT}.txt" 2>/dev/null | head -20 || true
   else
     warn "cProfile failed; see logs/cprofile.log"

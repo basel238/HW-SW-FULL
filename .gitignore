@@ -1,0 +1,15 @@
+# Local artifacts (added by migrate_hwsw.py)
+.DS_Store
+._*
+__pycache__/
+*.py[cod]
+*.bak
+*.bak.*
+*~
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+/results/*
+!/results/.gitkeep
+/report_*.generated.txt

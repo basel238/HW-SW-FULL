@@ -18,8 +18,12 @@ WHAT WAS CHANGED AND WHY (each traced to a specific profile observation)
      latency, pipelined) plus one multiply and one divide. Mathematically
      identical for d2 > 0, which always holds here (bodies never coincide).
 
-[O2] Flatten the body representation from (list,list,float) into
-     parallel flat lists of scalars, and unpack pair state into LOCAL
+[O2] Flatten the body representation into parallel lists of scalars.
+     NOTE, precisely: these are Python LISTS of BOXED floats, not unboxed
+     hardware arrays. This does not produce SIMD, does not eliminate
+     allocation, and does not remove every subscript -- it reduces the
+     NUMBER of subscript operations and of tuple unpacks. Claims beyond
+     that would not be supported by the measurements., and unpack pair state into LOCAL
      variables before the arithmetic.
      Profile evidence: report_*_self.txt attributes heavy self time to
      list subscript (BINARY_SUBSCR) and to the tuple-unpacking of
@@ -52,15 +56,26 @@ NOT DONE (deliberately, and worth saying in the presentation)
     also changes the RESULT (it is an approximation). That would invalidate
     the energy oracle, so it is out of scope for a like-for-like comparison.
   * Multithreading: the GIL serializes pure-Python float work, so it cannot help.
+
+A NOTE ON WHAT SCALARIZATION DOES *NOT* DO
+------------------------------------------
+Python scalar floats remain boxed heap objects, and arithmetic still goes
+through the interpreter with allocation and reference counting. These
+optimizations remove CONTAINER objects, METHOD dispatch and SUBSCRIPT
+operations. They do not make the arithmetic native.
 """
 
 import argparse
 import gc
+import os
 import sys
 import time
 from math import sqrt
 
-TARGET_SEC = 3.0
+# Calibration target. Read from the environment so config/bench.env
+# TARGET_SEC actually controls it; previously this was hardcoded and the
+# documented shell knob silently did nothing. Found by external review.
+TARGET_SEC = float(os.environ.get("TARGET_SEC", "3.0"))
 DEFAULT_STEPS = 20000
 DT = 0.01
 
@@ -208,7 +223,8 @@ def main():
         pl = build_pairs(state[6])
         offset_momentum_flat(state[3], state[4], state[5], state[6])
         e0 = report_energy_flat(state, pl)
-        advance_opt(DT, 1000, state, pl)
+        steps = a.steps   # MEASURED step count, not a reduced one
+        advance_opt(DT, steps, state, pl)
         e1 = report_energy_flat(state, pl)
         rel = abs(e1 - e0) / abs(e0)
         assert rel < 1e-3, f"energy not conserved: rel={rel:.3e}"
@@ -222,14 +238,33 @@ def main():
         import bm_nbody as base
         bpl = base.pairs(len(base.SYSTEM_ORDER))
         bb = base.fresh_system(); base.offset_momentum(bb, base.SOLAR_MASS)
-        base.advance(base.DT, 1000, bb, bpl)
+        base.advance(base.DT, steps, bb, bpl)
         be = base.report_energy(bb, bpl)
         # Tolerance is for float reassociation only ([O1] changes the rounding
         # of one operation), not for any physical difference.
         diff = abs(be - e1) / abs(be)
         assert diff < 1e-9, (f"OPTIMIZED DIVERGES FROM BASELINE: "
                              f"base={be:.12f} opt={e1:.12f} rel={diff:.3e}")
-        print(f"verify: OK  e_final={e1:.9f} rel_drift={rel:.3e}")
+        # Compare FULL STATE, not only the energy scalar. Energy is a summary:
+        # different configurations can share an energy value, so agreement on it
+        # alone cannot establish positions and velocities.
+        bstate = []
+        for (p_, v_, m_) in bb:
+            bstate.extend([p_[0], p_[1], p_[2], v_[0], v_[1], v_[2]])
+        xs, ys, zs, vxs, vys, vzs, ms = state
+        ostate = []
+        for i in range(len(ms)):
+            ostate.extend([xs[i], ys[i], zs[i], vxs[i], vys[i], vzs[i]])
+        max_abs = max(abs(x - y) for x, y in zip(ostate, bstate))
+        scale = max(max(abs(x) for x in bstate), 1e-300)
+        max_rel = max_abs / scale
+        assert max_rel < 1e-9, (f"STATE diverges from baseline: "
+                                f"max_abs={max_abs:.3e} max_rel={max_rel:.3e}")
+
+        print(f"verify: OK  steps={steps}")
+        print(f"  e_final={e1!r}  rel_drift={rel:.3e}")
+        print(f"  state vs baseline: max_abs={max_abs:.3e} max_rel={max_rel:.3e} "
+              f"({len(ostate)} values)")
         print(f"cross-check vs baseline: base={be:.12f} opt={e1:.12f} "
               f"rel_diff={diff:.3e}  MATCH")
         return 0
