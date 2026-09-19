@@ -1,0 +1,28 @@
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.152299 s  259.519 ms/frame
+primary_rays=160000  38.53 kray/s
+RESULT total_sec=4.152299 loops=16 ms_per_frame=259.5187 krays_per_sec=38.5329
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.129440 s  258.090 ms/frame
+primary_rays=160000  38.75 kray/s
+RESULT total_sec=4.129440 loops=16 ms_per_frame=258.0900 krays_per_sec=38.7462
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.151918 s  259.495 ms/frame
+primary_rays=160000  38.54 kray/s
+RESULT total_sec=4.151918 loops=16 ms_per_frame=259.4949 krays_per_sec=38.5364
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.127533 s  257.971 ms/frame
+primary_rays=160000  38.76 kray/s
+RESULT total_sec=4.127533 loops=16 ms_per_frame=257.9708 krays_per_sec=38.7641
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.130968 s  258.186 ms/frame
+primary_rays=160000  38.73 kray/s
+RESULT total_sec=4.130968 loops=16 ms_per_frame=258.1855 krays_per_sec=38.7318
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.123375 s  257.711 ms/frame
+primary_rays=160000  38.80 kray/s
+RESULT total_sec=4.123375 loops=16 ms_per_frame=257.7109 krays_per_sec=38.8032
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.131528 s  258.221 ms/frame
+primary_rays=160000  38.73 kray/s
+RESULT total_sec=4.131528 loops=16 ms_per_frame=258.2205 krays_per_sec=38.7266

@@ -1,12 +1,10 @@
-[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
-[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
 ===============================================================================
  REPORT — nbody
  HW/SW Co-design (00460882) — Benchmark Optimization, Analysis,
                               and Hardware Acceleration
 ===============================================================================
- Generated : 2026-09-19T15:03:17Z
- Commit    : 327c9dc
+ Generated : 2026-09-19T15:59:01Z
+ Commit    : ff496e2
  Host      : Linux 5.15.0-1106-kvm x86_64 | Ubuntu 22.04.5 LTS
  Generator : tools/gen_report.sh (measured sections are auto-filled; analysis
              sections marked [TODO] require your own writing)
@@ -57,22 +55,22 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   Noise control: single-CPU pinning via taskset, PYTHONHASHSEED fixed,
   cyclic GC disabled during the timed region, ASLR disabled, CPU governor set
   to performance where the platform exposes it. Reported statistic is the
-  MEDIAN over 7 independent processes, with relative standard
+  MEDIAN over 11 independent processes, with relative standard
   deviation reported so the reader can judge whether the result is solid.
 
   Sampling frequency is 999 Hz (deliberately not a round 1000 Hz, to
   avoid lock-stepping with periodic kernel timers and with the benchmark's own
-  loop boundaries). Call graphs use dwarf unwinding because stock CPython
+  loop boundaries). Call graphs use fp unwinding because stock CPython
   is compiled with -fomit-frame-pointer, so frame-pointer unwinding yields
   truncated stacks.
 
 2.2 Environment
   ==============================================================
-   run tag    : nbody_baseline_20260919-145840
+   run tag    : nbody_baseline_20260919-155502
    benchmark  : nbody        variant: baseline
-   date (UTC) : 2026-09-19T14:58:40Z
-   git commit : 327c9dc
-   git dirty  : 11 file(s)
+   date (UTC) : 2026-09-19T15:55:03Z
+   git commit : ff496e2
+   git dirty  : 16 file(s)
   ==============================================================
   
   --- host ---
@@ -108,7 +106,7 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   
   --- memory ---
                  total        used        free      shared  buff/cache   available
-  Mem:           3.8Gi       136Mi       2.0Gi       0.0Ki       1.7Gi       3.7Gi
+  Mem:           3.8Gi       141Mi       1.9Gi       0.0Ki       1.8Gi       3.7Gi
   Swap:             0B          0B          0B
   
   --- toolchain ---
@@ -129,85 +127,153 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   
 
 2.3 Hardware counters (baseline)
-  # started on Sat Sep 19 14:59:18 2026
+  # started on Sat Sep 19 15:55:58 2026
   
   
    Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_nbody.py --mode raw --loops 16 --no-gc' (5 runs):
   
-             4278.22 msec task-clock                #    0.999 CPUs utilized            ( +-  0.02% )
-                1492      page-faults               #  349.072 /sec                   
-                1492      minor-faults              #  349.072 /sec                   
+             4288.54 msec task-clock                #    0.998 CPUs utilized            ( +-  0.02% )
+                1492      page-faults               #  347.829 /sec                   
+                1492      minor-faults              #  347.829 /sec                   
                    0      major-faults              #    0.000 /sec                   
-                  63      context-switches          #   14.740 /sec                     ( +-  8.04% )
+                  36      context-switches          #    8.393 /sec                     ( +- 10.04% )
                    0      cpu-migrations            #    0.000 /sec                   
-          9968057924      cycles                    #    2.332 GHz                      ( +-  0.02% )  (50.00%)
-         30533056082      instructions              #    3.06  insn per cycle           ( +-  0.02% )  (60.09%)
-          3518857904      branches                  #  823.280 M/sec                    ( +-  0.06% )  (60.13%)
-            19180446      branch-misses             #    0.55% of all branches          ( +-  0.19% )  (60.11%)
-             2250881      cache-references          #  526.621 K/sec                    ( +-  3.03% )  (60.12%)
-              106817      cache-misses              #    5.191 % of all cache refs      ( +- 13.53% )  (60.03%)
-          9746348983      L1-dcache-loads           #    2.280 G/sec                    ( +-  0.05% )  (39.87%)
-             3637836      L1-dcache-load-misses     #    0.04% of all L1-dcache accesses  ( +-  3.38% )  (39.89%)
+          9984036273      cycles                    #    2.328 GHz                      ( +-  0.05% )  (49.95%)
+         30558949669      instructions              #    3.06  insn per cycle           ( +-  0.02% )  (60.00%)
+          3516157266      branches                  #  819.720 M/sec                    ( +-  0.03% )  (60.10%)
+            18818941      branch-misses             #    0.54% of all branches          ( +-  0.46% )  (60.12%)
+             2355231      cache-references          #  549.074 K/sec                    ( +-  2.43% )  (60.12%)
+              119643      cache-misses              #    5.189 % of all cache refs      ( +-  6.09% )  (60.10%)
+          9757241434      L1-dcache-loads           #    2.275 G/sec                    ( +-  0.02% )  (39.90%)
+             4152390      L1-dcache-load-misses     #    0.04% of all L1-dcache accesses  ( +-  3.71% )  (39.88%)
      <not supported>      LLC-loads                                                   
      <not supported>      LLC-load-misses                                             
-          4875080661      dTLB-loads                #    1.141 G/sec                    ( +-  0.11% )  (39.88%)
-               56689      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +- 11.40% )  (39.97%)
+          4863783500      dTLB-loads                #    1.134 G/sec                    ( +-  0.02% )  (39.88%)
+               40920      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +- 10.87% )  (39.90%)
   
-             4.28153 +- 0.00275 seconds time elapsed  ( +-  0.06% )
+            4.295661 +- 0.000848 seconds time elapsed  ( +-  0.02% )
   
 
 2.4 perf report — hottest symbols, self time (baseline)
-
+      42.53%  python3-dbg  python3.10d       [.] _PyEval_EvalFrameDefault
+              |
+              ---_PyEval_EvalFrameDefault
+                 |          
+                 |--1.10%--0x300370014127c
+                 |          
+                 |--0.92%--0x3c000300370014
+                 |          
+                 |--0.92%--0x300380014137c
+                 |          
+                 |--0.89%--0x1640a7c00190164
+                 |          
+                 |--0.77%--0xa7d035c0019067c
+                 |          
+                 |--0.65%--0x127c0e7c00190005
+                 |          
+                 |--0.65%--0xa7c00190364077c
+                 |          
+                 |--0.65%--0x464107c007c107d
+                 |          
+                 |--0.65%--0x18001903640a7c
+                 |          
+                 |--0.60%--0x107d001700140f7c
+                 |          
+                 |--0.57%--0xe7c00140d7c0d7c
+                 |          
+                 |--0.57%--0xd7c001900050164
+                 |          
+                 |--0.57%--0x3c000300380014
+                 |          
+                 |--0.54%--0x117c097c117d0014
+                 |          
+                 |--0.54%--0xa7c00190264077c
+                 |          
+                 |--0.51%--0x147d035c295d0044
 
 2.5 Time by shared object (baseline)
-
+      97.95%    97.80%  python3.10d     
+              |          
+              |--26.10%--0x9ad3c0
+              |          |          
+              |          |--4.79%--binary_op1
+              |          |          
+              |          |--3.21%--float_mul.lto_priv.0
+              |          |          
+              |          |--2.29%--list_ass_item.lto_priv.0
+              |          |          
+              |          |--2.08%--float_sub.lto_priv.0
+              |          |          
+              |          |--1.85%--_Py_CheckSlotResult
+              |          |          
+              |          |--1.82%--float_add.lto_priv.0
+              |          |          
+              |          |--1.73%--list_ass_subscript.lto_priv.0
+              |          |          
 
 2.6 Hottest call stacks (baseline, folded)
-    [no folded stacks]
+  python3-dbg;[unknown];_PyEval_EvalFrameDefault 2858000000
+  python3-dbg;[unknown];binary_op1 322000000
+  python3-dbg;[unknown];float_dealloc.lto_priv.0 254000000
+  python3-dbg;[unknown];float_mul.lto_priv.0 216000000
+  python3-dbg;PyFloat_FromDouble 206000000
+  python3-dbg;[unknown];PyObject_GetItem 192000000
+  python3-dbg;[unknown];list_ass_item.lto_priv.0 154000000
+  python3-dbg;[unknown];_PyNumber_Index 154000000
+  python3-dbg;[unknown];float_sub.lto_priv.0 140000000
+  python3-dbg;list_item.lto_priv.0 138000000
+  python3-dbg;[unknown];PyNumber_AsSsize_t 130000000
+  python3-dbg;[unknown];_Py_CheckSlotResult 126000000
+  python3-dbg;[unknown];float_add.lto_priv.0 122000000
+  python3-dbg;[unknown];list_ass_subscript.lto_priv.0 116000000
+  python3-dbg;[unknown];PyTuple_GetItem 104000000
+  python3-dbg;[unknown];binary_iop1 94000000
+  python3-dbg;[unknown];PyLong_AsSsize_t 92000000
+  python3-dbg;[unknown];list_subscript.lto_priv.0 86000000
 
 2.7 Exact call counts (cProfile, baseline)
   ======================================================================
   TOP 40 BY TOTTIME (self time, excludes subcalls)
   ======================================================================
-  Sat Sep 19 15:00:40 2026    /root/HW-SW-FULL/results/nbody_baseline_20260919-145840/raw/cprofile_baseline.pstats
+  Sat Sep 19 15:56:53 2026    /root/HW-SW-FULL/results/nbody_baseline_20260919-155502/raw/cprofile_baseline.pstats
   
-           4062 function calls (3982 primitive calls) in 0.359 seconds
+           4062 function calls (3982 primitive calls) in 0.368 seconds
   
      Ordered by: internal time
      List reduced from 311 to 40 due to restriction <40>
   
      ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-          1    0.352    0.352    0.352    0.352 /root/HW-SW-FULL/bench/bm_nbody.py:90(advance)
+          1    0.361    0.361    0.361    0.361 /root/HW-SW-FULL/bench/bm_nbody.py:90(advance)
           6    0.001    0.000    0.001    0.000 {built-in method marshal.loads}
       40/38    0.001    0.000    0.001    0.000 {built-in method builtins.__build_class__}
           2    0.000    0.000    0.000    0.000 {built-in method _imp.create_dynamic}
-         66    0.000    0.000    0.000    0.000 {built-in method posix.stat}
          26    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+         66    0.000    0.000    0.000    0.000 {built-in method posix.stat}
          10    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:179(_get_module_lock)
-        128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:126(_path_join)
           6    0.000    0.000    0.000    0.000 {built-in method io.open_code}
         8/6    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:494(_parse)
+        128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:126(_path_join)
           4    0.000    0.000    0.000    0.000 {built-in method __new__ of type object at 0x555555ad29a0}
         128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:128(<listcomp>)
        14/5    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_compile.py:87(_compile)
+        147    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}
          24    0.000    0.000    0.000    0.000 /usr/lib/python3.10/posixpath.py:71(join)
-          1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/argparse.py:1252(FileType)
           8    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1399(_get_spec)
+          1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/argparse.py:1252(FileType)
+          2    0.000    0.000    0.000    0.000 {built-in method _imp.exec_dynamic}
          10    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap>:921(_find_spec)
           6    0.000    0.000    0.000    0.000 {method 'read' of '_io.BufferedReader' objects}
          66    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}
           1    0.000    0.000    0.000    0.000 {built-in method builtins.eval}
-          5    0.000    0.000    0.000    0.000 {built-in method builtins.print}
-          2    0.000    0.000    0.000    0.000 {built-in method _imp.exec_dynamic}
-          1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/collections/__init__.py:328(namedtuple)
-          3    0.000    0.000    0.000    0.000 /usr/lib/python3.10/gettext.py:542(find)
+          5    0.000    0.000    0.005    0.001 /usr/lib/python3.10/argparse.py:1411(add_argument)
           6    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:950(get_code)
-          5    0.000    0.000    0.004    0.001 /usr/lib/python3.10/argparse.py:1411(add_argument)
+          3    0.000    0.000    0.000    0.000 /usr/lib/python3.10/gettext.py:542(find)
+          1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/collections/__init__.py:328(namedtuple)
        10/3    0.000    0.000    0.005    0.002 <frozen importlib._bootstrap>:1022(_find_and_load)
           1    0.000    0.000    0.003    0.003 /usr/lib/python3.10/shutil.py:1(<module>)
        10/3    0.000    0.000    0.005    0.002 <frozen importlib._bootstrap>:664(_load_unlocked)
+         22    0.000    0.000    0.000    0.000 /usr/lib/python3.10/os.py:675(__getitem__)
          12    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:380(cache_from_source)
-         10    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:492(_init_module_attrs)
 
 2.8 Flame graphs
   Baseline SVGs (open in a browser; they are interactive):
@@ -265,23 +331,23 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   
   metric                baseline       optimized           delta
   --------------------------------------------------------------------------
-  samples                      7               7                
-  min                 4.188391 s      3.857492 s     -0.330899 s
-  median              4.189840 s      3.858124 s     -0.331716 s
-  mean                4.191882 s      3.858993 s     -0.332889 s
-  max                 4.198107 s      3.862976 s     -0.335131 s
-  stdev               0.004213 s      0.001873 s     -0.002340 s
-  rel stdev                0.10%           0.05%                
+  samples                     11              11                
+  min                 4.235267 s      3.860327 s     -0.374940 s
+  median              4.245076 s      3.868066 s     -0.377010 s
+  mean                4.246400 s      3.881963 s     -0.364438 s
+  max                 4.263324 s      3.942753 s     -0.320571 s
+  stdev               0.008160 s      0.025344 s     +0.017184 s
+  rel stdev                0.19%           0.65%                
   
   ==========================================================================
-    SPEEDUP     : 1.0860x
-    IMPROVEMENT : 7.92 %   (time reduction)
+    SPEEDUP     : 1.0975x
+    IMPROVEMENT : 8.88 %   (time reduction)
     PROJECT BAR : 7.00 %
     VERDICT     : PASS
   ==========================================================================
   
-  Signal check: improvement (7.92%) exceeds 2x noise (0.10%). OK.
-  Min-vs-min speedup (least-noise estimate): 1.0858x (7.90% improvement)
+  Signal check: improvement (8.88%) exceeds 2x noise (0.65%). OK.
+  Min-vs-min speedup (least-noise estimate): 1.0971x (8.85% improvement)
 
 4.1 Counter comparison
   ===============================================================
@@ -295,54 +361,54 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   --------------------------------------------------------------
    baseline
   --------------------------------------------------------------
-  # started on Sat Sep 19 14:59:18 2026
+  # started on Sat Sep 19 15:55:58 2026
    Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_nbody.py --mode raw --loops 16 --no-gc' (5 runs):
-             4278.22 msec task-clock                #    0.999 CPUs utilized            ( +-  0.02% )
-                1492      page-faults               #  349.072 /sec                   
-                1492      minor-faults              #  349.072 /sec                   
+             4288.54 msec task-clock                #    0.998 CPUs utilized            ( +-  0.02% )
+                1492      page-faults               #  347.829 /sec                   
+                1492      minor-faults              #  347.829 /sec                   
                    0      major-faults              #    0.000 /sec                   
-                  63      context-switches          #   14.740 /sec                     ( +-  8.04% )
+                  36      context-switches          #    8.393 /sec                     ( +- 10.04% )
                    0      cpu-migrations            #    0.000 /sec                   
-          9968057924      cycles                    #    2.332 GHz                      ( +-  0.02% )  (50.00%)
-         30533056082      instructions              #    3.06  insn per cycle           ( +-  0.02% )  (60.09%)
-          3518857904      branches                  #  823.280 M/sec                    ( +-  0.06% )  (60.13%)
-            19180446      branch-misses             #    0.55% of all branches          ( +-  0.19% )  (60.11%)
-             2250881      cache-references          #  526.621 K/sec                    ( +-  3.03% )  (60.12%)
-              106817      cache-misses              #    5.191 % of all cache refs      ( +- 13.53% )  (60.03%)
-          9746348983      L1-dcache-loads           #    2.280 G/sec                    ( +-  0.05% )  (39.87%)
-             3637836      L1-dcache-load-misses     #    0.04% of all L1-dcache accesses  ( +-  3.38% )  (39.89%)
-          4875080661      dTLB-loads                #    1.141 G/sec                    ( +-  0.11% )  (39.88%)
-               56689      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +- 11.40% )  (39.97%)
-             4.28153 +- 0.00275 seconds time elapsed  ( +-  0.06% )
+          9984036273      cycles                    #    2.328 GHz                      ( +-  0.05% )  (49.95%)
+         30558949669      instructions              #    3.06  insn per cycle           ( +-  0.02% )  (60.00%)
+          3516157266      branches                  #  819.720 M/sec                    ( +-  0.03% )  (60.10%)
+            18818941      branch-misses             #    0.54% of all branches          ( +-  0.46% )  (60.12%)
+             2355231      cache-references          #  549.074 K/sec                    ( +-  2.43% )  (60.12%)
+              119643      cache-misses              #    5.189 % of all cache refs      ( +-  6.09% )  (60.10%)
+          9757241434      L1-dcache-loads           #    2.275 G/sec                    ( +-  0.02% )  (39.90%)
+             4152390      L1-dcache-load-misses     #    0.04% of all L1-dcache accesses  ( +-  3.71% )  (39.88%)
+          4863783500      dTLB-loads                #    1.134 G/sec                    ( +-  0.02% )  (39.88%)
+               40920      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +- 10.87% )  (39.90%)
+            4.295661 +- 0.000848 seconds time elapsed  ( +-  0.02% )
   
   --------------------------------------------------------------
    optimized
   --------------------------------------------------------------
-  # started on Sat Sep 19 15:01:49 2026
+  # started on Sat Sep 19 15:58:09 2026
    Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/variants/bm_nbody_opt.py --mode raw --loops 16 --no-gc' (5 runs):
-             3956.98 msec task-clock                #    0.999 CPUs utilized            ( +-  0.01% )
-                1516      page-faults               #  383.174 /sec                   
-                1516      minor-faults              #  383.174 /sec                   
+             3960.97 msec task-clock                #    0.994 CPUs utilized            ( +-  0.26% )
+                1516      page-faults               #  381.140 /sec                   
+                1516      minor-faults              #  381.140 /sec                   
                    0      major-faults              #    0.000 /sec                   
-                  32      context-switches          #    8.088 /sec                     ( +-  5.17% )
+                  33      context-switches          #    8.297 /sec                     ( +-  7.46% )
                    0      cpu-migrations            #    0.000 /sec                   
-          9231917878      cycles                    #    2.333 GHz                      ( +-  0.03% )  (50.00%)
-         29765586717      instructions              #    3.23  insn per cycle           ( +-  0.02% )  (60.01%)
-          3454042445      branches                  #  873.020 M/sec                    ( +-  0.03% )  (60.01%)
-            17971567      branch-misses             #    0.52% of all branches          ( +-  0.09% )  (60.01%)
-             2054874      cache-references          #  519.376 K/sec                    ( +-  1.58% )  (60.00%)
-               49229      cache-misses              #    2.453 % of all cache refs      ( +-  6.41% )  (60.00%)
-          9507344029      L1-dcache-loads           #    2.403 G/sec                    ( +-  0.03% )  (39.99%)
-             3256015      L1-dcache-load-misses     #    0.03% of all L1-dcache accesses  ( +-  4.30% )  (39.99%)
-          4735255926      dTLB-loads                #    1.197 G/sec                    ( +-  0.02% )  (40.00%)
-               85955      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +-  5.66% )  (40.00%)
-            3.961880 +- 0.000965 seconds time elapsed  ( +-  0.02% )
+          9241342057      cycles                    #    2.323 GHz                      ( +-  0.24% )  (49.98%)
+         29764938348      instructions              #    3.21  insn per cycle           ( +-  0.03% )  (60.05%)
+          3456531377      branches                  #  869.012 M/sec                    ( +-  0.03% )  (60.05%)
+            17935596      branch-misses             #    0.52% of all branches          ( +-  0.09% )  (60.04%)
+             2102963      cache-references          #  528.709 K/sec                    ( +-  1.31% )  (60.04%)
+               69506      cache-misses              #    3.396 % of all cache refs      ( +- 16.58% )  (60.04%)
+          9509139016      L1-dcache-loads           #    2.391 G/sec                    ( +-  0.05% )  (39.95%)
+             3212030      L1-dcache-load-misses     #    0.03% of all L1-dcache accesses  ( +-  4.51% )  (39.96%)
+          4734293634      dTLB-loads                #    1.190 G/sec                    ( +-  0.04% )  (39.96%)
+               71087      dTLB-load-misses          #    0.00% of all dTLB cache accesses  ( +-  5.14% )  (39.96%)
+              3.9843 +- 0.0105 seconds time elapsed  ( +-  0.26% )
   
   --------------------------------------------------------------
    derived ratios (insn, IPC, miss rates)
   --------------------------------------------------------------
-   baseline   instructions=30533056082      cycles=9968057924       IPC=3.0631
-   optimized  instructions=29765586717      cycles=9231917878       IPC=3.2242
+   baseline   instructions=30558949669      cycles=9984036273       IPC=3.0608
+   optimized  instructions=29764938348      cycles=9241342057       IPC=3.2208
 
 4.2 Symbol-level delta
   ==============================================================================
@@ -353,7 +419,43 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   
   symbol                                            base%     opt%     delta
   ------------------------------------------------------------------------------
-  
+  [.] _PyEval_EvalFrameDefault                      42.53    45.10     +2.57
+  [.] binary_op1                                     5.03     6.74     +1.71
+  [.] PyFloat_FromDouble                             3.45     4.03     +0.58
+  [.] float_mul.lto_priv.0                           3.21     3.84     +0.63
+  [.] float_dealloc.lto_priv.0                       3.78     3.24     -0.54
+  [.] PyNumber_AsSsize_t                             2.98     2.77     -0.21
+  [.] PyObject_GetItem                               2.86     1.86     -1.00
+  [.] _Py_CheckSlotResult                            2.17     2.14     -0.03
+  [.] _PyNumber_Index                                2.29     1.64     -0.65
+  [.] list_ass_item.lto_priv.0                       2.29     1.61     -0.68
+  [.] list_item.lto_priv.0                           2.05     1.83     -0.22
+  [.] list_subscript.lto_priv.0                      2.02     1.70     -0.32
+  [.] float_sub.lto_priv.0                           2.08     1.42     -0.66
+  [.] float_add.lto_priv.0                           1.82     1.61     -0.21
+  [.] list_ass_subscript.lto_priv.0                  1.73     1.35     -0.38
+  [.] PyLong_AsSsize_t                               1.37     1.29     -0.08
+  [.] PyObject_SetItem                               1.58     1.04     -0.54
+  [.] PyNumber_Multiply                              1.01     1.51     +0.50
+  [.] _Py_NewReference                               1.28     1.17     -0.11
+  [.] get_float_state                                1.10     1.32     +0.22
+  [.] _Py_Dealloc                                    1.10     1.23     +0.13
+  [.] PyTuple_GetItem                                1.55     0.13     -1.42
+  [.] listiter_next.lto_priv.0                       1.01     0.54     -0.47
+  [.] binary_op                                      0.51     0.98     +0.47
+  [.] binary_iop1                                    1.40     0.00     -1.40
+  [.] __ieee754_pow_fma                              1.25     0.00     -1.25
+  [.] call_function.lto_priv.0                       0.00     0.88     +0.88
+  [.] _PyMem_DebugCheckAddress                       0.39     0.38     -0.01
+  [.] float_div.lto_priv.0                           0.00     0.60     +0.60
+  [.] read_size_t                                    0.27     0.28     +0.01
+  [.] cfunction_vectorcall_O.lto_priv.0              0.00     0.50     +0.50
+  [.] ternary_op                                     0.45     0.00     -0.45
+  [.] PyNumber_InPlaceAdd                            0.45     0.00     -0.45
+  [.] PyNumber_Add                                   0.09     0.35     +0.26
+  [.] float_pow.lto_priv.0                           0.39     0.00     -0.39
+  [.] _PyObject_VectorcallTstate.lto_priv.10         0.03     0.35     +0.32
+  [.] pthread_getspecific@@GLIBC_2.34                0.12     0.25     +0.13
 
 4.3 Differential flame graph
     /root/HW-SW-FULL/results/latest_comparison_nbody/diff_flame.svg
@@ -363,10 +465,10 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
 
 4.4 pyperformance (independent harness)
   Total duration: 19.5 sec
-  Start date: 2026-09-19 15:00:52
-  End date: 2026-09-19 15:01:14
-  Raw value minimum: 228 ms
-  Raw value maximum: 244 ms
+  Start date: 2026-09-19 15:56:57
+  End date: 2026-09-19 15:57:18
+  Raw value minimum: 229 ms
+  Raw value maximum: 233 ms
   
   Number of calibration run: 1
   Number of run with values: 20
@@ -377,16 +479,16 @@ advance(dt): for each of the 10 unordered body pairs, compute the separation vec
   Loop iterations per value: 1
   Total number of values: 60
   
-  Minimum:         228 ms
-  Median +- MAD:   230 ms +- 1 ms
-  Mean +- std dev: 231 ms +- 3 ms
-  Maximum:         244 ms
+  Minimum:         229 ms
+  Median +- MAD:   230 ms +- 0 ms
+  Mean +- std dev: 230 ms +- 1 ms
+  Maximum:         233 ms
   
-    0th percentile: 228 ms (-1% of the mean) -- minimum
-    5th percentile: 229 ms (-1% of the mean)
-   25th percentile: 229 ms (-1% of the mean) -- Q1
+    0th percentile: 229 ms (-1% of the mean) -- minimum
+    5th percentile: 229 ms (-0% of the mean)
+   25th percentile: 229 ms (-0% of the mean) -- Q1
    50th percentile: 230 ms (-0% of the mean) -- median
-   75th percentile: 231 ms (+0% of the mean) -- Q3
+   75th percentile: 230 ms (+0% of the mean) -- Q3
 
 4.5 [TODO] Interpretation
   Explain WHY it got faster using 4.1: did instruction count fall (work

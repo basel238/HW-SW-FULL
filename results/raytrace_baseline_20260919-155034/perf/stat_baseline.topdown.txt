@@ -1,0 +1,10 @@
+# started on Sat Sep 19 15:52:11 2026
+
+
+ Performance counter stats for 'system wide':
+
+                                    retiring      bad speculation       frontend bound        backend bound 
+S0-D0-C0           1                66.5%               -65.7%                12.4%                        86.8% 
+
+       4.189312875 seconds time elapsed
+

@@ -1,0 +1,54 @@
+==============================================================================
+ SYMBOL-LEVEL DELTA (self overhead %, sampled profile)
+==============================================================================
+Note: percentages are shares of each profile, so they sum to ~100 in
+both columns. A symbol dropping to 0.00 means it was eliminated.
+
+symbol                                            base%     opt%     delta
+------------------------------------------------------------------------------
+[.] _PyEval_EvalFrameDefault                      31.97    41.65     +9.68
+[.] binary_op1                                     2.70     6.66     +3.96
+[.] PyFloat_FromDouble                             1.56     4.24     +2.68
+[.] frame_dealloc.lto_priv.0                       3.55     1.78     -1.77
+[.] float_dealloc.lto_priv.0                       1.44     3.75     +2.31
+[.] float_mul.lto_priv.0                           0.87     3.71     +2.84
+[.] call_function.lto_priv.0                       2.85     1.41     -1.44
+[.] _PyEval_MakeFrameVector                        3.32     0.93     -2.39
+[.] PyTuple_GetItem                                1.91     1.09     -0.82
+[.] lookdict_unicode_nodummy                       1.59     0.93     -0.66
+[.] _Py_CheckSlotResult                            0.84     1.57     +0.73
+[.] float_sub.lto_priv.0                           0.67     1.61     +0.94
+[.] _Py_NewReference                               0.82     1.41     +0.59
+[.] _PyType_Lookup                                 2.21     0.00     -2.21
+[.] float_add.lto_priv.0                           0.57     1.57     +1.00
+[.] _PyObject_VectorcallTstate.lto_priv.10         1.19     0.89     -0.30
+[.] get_float_state                                0.77     1.29     +0.52
+[.] _Py_Dealloc                                    0.79     1.09     +0.30
+[.] PyNumber_Multiply                              0.62     1.17     +0.55
+[.] binary_op                                      0.60     1.17     +0.57
+[.] _PyUnicode_FromId                              1.24     0.32     -0.92
+[.] _PyObject_GenericSetAttrWithDict               1.54     0.00     -1.54
+[.] _Py_CheckFunctionResult                        1.17     0.36     -0.81
+[.] PyObject_RichCompare                           0.35     1.13     +0.78
+[.] tupledealloc.lto_priv.0                        0.74     0.69     -0.05
+[.] _PyFunction_Vectorcall                         1.12     0.24     -0.88
+[.] _PyMem_DebugCheckAddress                       1.02     0.32     -0.70
+[.] _PyFrame_New_NoTrack                           0.99     0.28     -0.71
+[.] _PyObject_GetMethod                            1.19     0.00     -1.19
+[.] _PyObject_Malloc                               0.69     0.40     -0.29
+[.] _PyEval_Vector                                 0.89     0.16     -0.73
+[.] read_size_t                                    0.87     0.16     -0.71
+[.] frame_alloc                                    0.74     0.28     -0.46
+[.] PyObject_SetAttr                               1.02     0.00     -1.02
+[.] tupleitem.lto_priv.0                           0.00     1.01     +1.01
+[.] tuple_alloc                                    0.60     0.36     -0.24
+[.] float_richcompare.lto_priv.0                   0.47     0.48     +0.01
+[.] float_div.lto_priv.0                           0.25     0.65     +0.40
+[.] do_richcompare                                 0.30     0.56     +0.26
+[.] PyDict_Contains                                0.72     0.12     -0.60
+
+ELIMINATED (>=1% in baseline, absent from optimized):
+    2.21%  [.] _PyType_Lookup
+    1.54%  [.] _PyObject_GenericSetAttrWithDict
+    1.19%  [.] _PyObject_GetMethod
+    1.02%  [.] PyObject_SetAttr

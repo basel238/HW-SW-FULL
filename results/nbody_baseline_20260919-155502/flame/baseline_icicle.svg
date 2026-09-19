@@ -1,0 +1,3942 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1800" height="2134" onload="init(evt)" viewBox="0 0 1800 2134" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (1 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+		if (currentSearchTerm === null) return;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1800.0" height="2134.0" fill="url(#background)"  />
+<text id="title" x="900.00" y="24" >nbody/baseline â icicle (top-down)</text>
+<text id="details" x="10.00" y="2117" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1690.00" y="24" >Search</text>
+<text id="ignorecase" x="1774.00" y="24" >ic</text>
+<text id="matched" x="1690.00" y="2117" > </text>
+<g id="frames">
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1716" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1726.5" ></text>
+</g>
+<g >
+<title>PyNumber_AsSsize_t (200,000,000 samples, 2.98%)</title><rect x="99.5" y="52" width="53.0" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="102.53" y="62.5" >PyNum..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="820" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="830.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1524" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1534.5" ></text>
+</g>
+<g >
+<title>tupletraverse.lto_priv.0 (4,000,000 samples, 0.06%)</title><rect x="1785.8" y="52" width="1.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="1788.76" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1300" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1310.5" ></text>
+</g>
+<g >
+<title>python3-dbg (154,000,000 samples, 2.29%)</title><rect x="1071.1" y="84" width="40.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1074.11" y="94.5" >pyt..</text>
+</g>
+<g >
+<title>PyNumber_Subtract (8,000,000 samples, 0.12%)</title><rect x="182.7" y="52" width="2.1" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="185.70" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (84,000,000 samples, 1.25%)</title><rect x="1181.8" y="68" width="22.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1184.83" y="78.5" >p..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1588" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1598.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="276" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="286.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="132" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="142.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1588.2" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1591.16" y="78.5" ></text>
+</g>
+<g >
+<title>_PyDict_CheckConsistency (2,000,000 samples, 0.03%)</title><rect x="303.0" y="52" width="0.5" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="305.96" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (94,000,000 samples, 1.40%)</title><rect x="1236.9" y="68" width="24.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1239.93" y="78.5" >[..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="308" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="318.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1764" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1774.5" ></text>
+</g>
+<g >
+<title>float_add.lto_priv.0 (122,000,000 samples, 1.82%)</title><rect x="1366.7" y="52" width="32.3" height="15.0" fill="rgb(249,202,48)" rx="2" ry="2" />
+<text  x="1369.72" y="62.5" >fl..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1732" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1742.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="692" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="702.5" ></text>
+</g>
+<g >
+<title>arena_map_get (6,000,000 samples, 0.09%)</title><rect x="1233.2" y="52" width="1.6" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="1236.22" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="244" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="254.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="300.3" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="303.31" y="94.5" ></text>
+</g>
+<g >
+<title>__close_nocancel (2,000,000 samples, 0.03%)</title><rect x="300.8" y="68" width="0.6" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="303.84" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1684" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1694.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="420" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="430.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1076" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1086.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="116" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="126.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="298.2" y="260" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="270.5" ></text>
+</g>
+<g >
+<title>[unknown] (130,000,000 samples, 1.93%)</title><rect x="99.5" y="68" width="34.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="102.53" y="78.5" >[u..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="948" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="958.5" ></text>
+</g>
+<g >
+<title>[unknown] (86,000,000 samples, 1.28%)</title><rect x="1702.6" y="68" width="22.8" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1705.59" y="78.5" >[..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1316" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1326.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1716" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1726.5" ></text>
+</g>
+<g >
+<title>python3-dbg (18,000,000 samples, 0.27%)</title><rect x="1770.4" y="84" width="4.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1773.40" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1761.9" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1764.92" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="708" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="718.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="884" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="894.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1700" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1710.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1236.4" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1239.40" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1044" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1054.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1762.5" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1765.45" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1284" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1294.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="772" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="782.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="916" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="926.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1776.8" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1779.76" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="68" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1764" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1774.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="580" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="590.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="804" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="814.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1780" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1790.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1108" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1118.5" ></text>
+</g>
+<g >
+<title>[unknown] (322,000,000 samples, 4.79%)</title><rect x="1266.1" y="68" width="85.3" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1269.07" y="78.5" >[unknown]</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1716" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1726.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1115.1" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1118.08" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1700" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1710.5" ></text>
+</g>
+<g >
+<title>read (2,000,000 samples, 0.03%)</title><rect x="302.4" y="68" width="0.6" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="305.43" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1252" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1262.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1284" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1294.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="772" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="782.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1115.1" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1118.08" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (30,000,000 samples, 0.45%)</title><rect x="152.5" y="68" width="8.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="155.51" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="948" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="958.5" ></text>
+</g>
+<g >
+<title>PyObject_GetIter (6,000,000 samples, 0.09%)</title><rect x="236.2" y="52" width="1.6" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="239.21" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="660" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="670.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="372" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="382.5" ></text>
+</g>
+<g >
+<title>__memmove_chk_avx_unaligned_erms (2,000,000 samples, 0.03%)</title><rect x="1227.9" y="52" width="0.6" height="15.0" fill="rgb(238,156,37)" rx="2" ry="2" />
+<text  x="1230.92" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1316" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1326.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="2084" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1791.41" y="2094.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1076" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1086.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1780" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1790.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="420" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="430.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1764" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1774.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1113.0" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1115.96" y="78.5" ></text>
+</g>
+<g >
+<title>list_ass_item.lto_priv.0 (154,000,000 samples, 2.29%)</title><rect x="1590.8" y="52" width="40.8" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="1593.81" y="62.5" >lis..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="708" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="718.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1732" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1742.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="884" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="894.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1476" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1486.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1763.0" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1765.98" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (50,000,000 samples, 0.74%)</title><rect x="1725.4" y="68" width="13.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1728.37" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1188" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1198.5" ></text>
+</g>
+<g >
+<title>python3-dbg (154,000,000 samples, 2.29%)</title><rect x="1590.8" y="84" width="40.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1593.81" y="94.5" >pyt..</text>
+</g>
+<g >
+<title>python3-dbg (12,000,000 samples, 0.18%)</title><rect x="1699.4" y="84" width="3.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1702.41" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="180" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="190.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="308" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="318.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="388" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="398.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="296.6" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="299.60" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="298.2" y="340" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="301.19" y="350.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1590.3" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1593.28" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (18,000,000 samples, 0.27%)</title><rect x="1525.6" y="68" width="4.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1528.65" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="692" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="702.5" ></text>
+</g>
+<g >
+<title>list_subscript.lto_priv.0 (136,000,000 samples, 2.02%)</title><rect x="1702.6" y="52" width="36.0" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="1705.59" y="62.5" >lis..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1233.2" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1236.22" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="244" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="254.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1396" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1406.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1700" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1710.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="740" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="750.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="644" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="654.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="996" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1006.5" ></text>
+</g>
+<g >
+<title>python3-dbg (6,000,000 samples, 0.09%)</title><rect x="1234.8" y="84" width="1.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1237.81" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1652" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1662.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1172" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1182.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1732" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1742.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1300" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1310.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="299.8" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="302.78" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="452" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="462.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1364.6" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1367.60" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="2084" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1790.35" y="2094.5" ></text>
+</g>
+<g >
+<title>python3-dbg (10,000,000 samples, 0.15%)</title><rect x="1116.7" y="68" width="2.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1119.67" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1589.8" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1592.75" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="298.2" y="196" width="1.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="206.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="182.7" y="68" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="185.70" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1780" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1790.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1268" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1278.5" ></text>
+</g>
+<g >
+<title>all (6,720,000,000 samples, 100%)</title><rect x="10.0" y="36" width="1780.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="46.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1460" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1470.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1124" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1134.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="516" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="526.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="788" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="798.5" ></text>
+</g>
+<g >
+<title>_int_malloc (2,000,000 samples, 0.03%)</title><rect x="301.9" y="68" width="0.5" height="15.0" fill="rgb(215,47,11)" rx="2" ry="2" />
+<text  x="304.90" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1767.2" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1770.22" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (30,000,000 samples, 0.45%)</title><rect x="1777.3" y="68" width="7.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1780.29" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="260" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="270.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="180" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="190.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1204" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1214.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="182.2" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="185.17" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="724" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="734.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="212" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="222.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="868" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="878.5" ></text>
+</g>
+<g >
+<title>build_indices (2,000,000 samples, 0.03%)</title><rect x="1364.6" y="52" width="0.5" height="15.0" fill="rgb(241,165,39)" rx="2" ry="2" />
+<text  x="1367.60" y="62.5" ></text>
+</g>
+<g >
+<title>list_iter.lto_priv.0 (12,000,000 samples, 0.18%)</title><rect x="1699.4" y="52" width="3.2" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="1702.41" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (8,000,000 samples, 0.12%)</title><rect x="1523.5" y="84" width="2.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1526.53" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1788.9" y="84" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1791.94" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1540" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1550.5" ></text>
+</g>
+<g >
+<title>_PyNumber_Index (154,000,000 samples, 2.29%)</title><rect x="1071.1" y="52" width="40.8" height="15.0" fill="rgb(246,189,45)" rx="2" ry="2" />
+<text  x="1074.11" y="62.5" >_Py..</text>
+</g>
+<g >
+<title>python3-dbg (70,000,000 samples, 1.04%)</title><rect x="134.0" y="68" width="18.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="136.96" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="932" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="942.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1636" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1646.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1119.3" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1122.32" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1232.7" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1235.69" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1233.8" y="68" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1236.75" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1236" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1246.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="237.3" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="240.27" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="292" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="302.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="10.0" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="13.00" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1668" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1678.5" ></text>
+</g>
+<g >
+<title>list_ass_subscript.lto_priv.0 (116,000,000 samples, 1.73%)</title><rect x="1631.6" y="52" width="30.7" height="15.0" fill="rgb(221,74,17)" rx="2" ry="2" />
+<text  x="1634.60" y="62.5" >li..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1748" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1758.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1763.0" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1765.98" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1365.7" y="68" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1368.66" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="404" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="414.5" ></text>
+</g>
+<g >
+<title>lookdict_split.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1758.7" y="52" width="0.6" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1761.74" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="148" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="158.5" ></text>
+</g>
+<g >
+<title>python3-dbg (130,000,000 samples, 1.93%)</title><rect x="99.5" y="84" width="34.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="102.53" y="94.5" >py..</text>
+</g>
+<g >
+<title>__memmove_avx_unaligned_erms (4,000,000 samples, 0.06%)</title><rect x="1226.9" y="52" width="1.0" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="1229.86" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1444" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1454.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="298.7" y="260" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="301.72" y="270.5" ></text>
+</g>
+<g >
+<title>_Py_CheckSlotResult (146,000,000 samples, 2.17%)</title><rect x="1123.0" y="52" width="38.7" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="1126.03" y="62.5" >_Py..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1140" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1150.5" ></text>
+</g>
+<g >
+<title>_PyObject_IsFreed (2,000,000 samples, 0.03%)</title><rect x="1115.1" y="52" width="0.5" height="15.0" fill="rgb(214,42,10)" rx="2" ry="2" />
+<text  x="1118.08" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="900" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="910.5" ></text>
+</g>
+<g >
+<title>[unknown] (26,000,000 samples, 0.39%)</title><rect x="10.5" y="68" width="6.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="13.53" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="468" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="478.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="228" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="238.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="852" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="862.5" ></text>
+</g>
+<g >
+<title>[unknown] (14,000,000 samples, 0.21%)</title><rect x="1228.5" y="68" width="3.7" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1231.45" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="596" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="606.5" ></text>
+</g>
+<g >
+<title>method_vectorcall_O (2,000,000 samples, 0.03%)</title><rect x="1762.5" y="52" width="0.5" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="1765.45" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="180" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="190.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1119.9" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1122.85" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1572" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1582.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="228" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="238.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="852" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="862.5" ></text>
+</g>
+<g >
+<title>python3-dbg (74,000,000 samples, 1.10%)</title><rect x="1161.7" y="84" width="19.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1164.70" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1140" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1150.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1776.2" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1779.23" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1012" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1022.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,858,000,000 samples, 42.53%)</title><rect x="303.5" y="52" width="757.0" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="306.49" y="62.5" >_PyEval_EvalFrameDefault</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1156" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1166.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1226.9" y="68" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1229.86" y="78.5" ></text>
+</g>
+<g >
+<title>PyObject_GC_UnTrack (2,000,000 samples, 0.03%)</title><rect x="184.8" y="52" width="0.6" height="15.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="187.82" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="980" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="990.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1508" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1518.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="236.2" y="84" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="239.21" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1758.7" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1761.74" y="78.5" ></text>
+</g>
+<g >
+<title>_add_methods_to_object (2,000,000 samples, 0.03%)</title><rect x="1232.7" y="52" width="0.5" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="1235.69" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1758.7" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1761.74" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="324" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="334.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="292" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="302.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1636" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1646.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1028" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1038.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="296.6" y="100" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="299.60" y="110.5" ></text>
+</g>
+<g >
+<title>ternary_op (30,000,000 samples, 0.45%)</title><rect x="1777.3" y="52" width="7.9" height="15.0" fill="rgb(215,49,11)" rx="2" ry="2" />
+<text  x="1780.29" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1540" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1550.5" ></text>
+</g>
+<g >
+<title>get_float_state (74,000,000 samples, 1.10%)</title><rect x="1568.6" y="52" width="19.6" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1571.56" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="340" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="350.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1492" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1502.5" ></text>
+</g>
+<g >
+<title>[unknown] (122,000,000 samples, 1.82%)</title><rect x="1366.7" y="68" width="32.3" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1369.72" y="78.5" >[u..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="964" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="974.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="303.0" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="305.96" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1380" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1390.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1236" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1246.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="756" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="766.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1763.5" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1766.51" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="356" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="366.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="932" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="942.5" ></text>
+</g>
+<g >
+<title>python3-dbg (8,000,000 samples, 0.12%)</title><rect x="1765.1" y="84" width="2.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1768.10" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1124" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1134.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="516" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="526.5" ></text>
+</g>
+<g >
+<title>python3-dbg (16,000,000 samples, 0.24%)</title><rect x="1351.4" y="68" width="4.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1354.36" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (6,000,000 samples, 0.09%)</title><rect x="1767.8" y="84" width="1.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1770.75" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="788" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="798.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1092" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1102.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="100" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="110.5" ></text>
+</g>
+<g >
+<title>PyObject_SetItem (106,000,000 samples, 1.58%)</title><rect x="238.3" y="52" width="28.1" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="241.33" y="62.5" >P..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1636" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1646.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="724" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="734.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="302.4" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="305.43" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="868" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="878.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="212" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="222.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="340" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="350.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1028" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1038.5" ></text>
+</g>
+<g >
+<title>frame_alloc (2,000,000 samples, 0.03%)</title><rect x="1568.0" y="52" width="0.6" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="1571.03" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1540" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1550.5" ></text>
+</g>
+<g >
+<title>[unknown] (192,000,000 samples, 2.86%)</title><rect x="185.4" y="68" width="50.8" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="188.35" y="78.5" >[unkn..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="756" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="766.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="356" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="366.5" ></text>
+</g>
+<g >
+<title>python3-dbg (30,000,000 samples, 0.45%)</title><rect x="152.5" y="84" width="8.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="155.51" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1332" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1342.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1988" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1998.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="964" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="974.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="237.8" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="240.80" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1380" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1390.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="2068" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="2078.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1236" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1246.5" ></text>
+</g>
+<g >
+<title>PyNumber_InPlaceAdd (30,000,000 samples, 0.45%)</title><rect x="152.5" y="52" width="8.0" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="155.51" y="62.5" ></text>
+</g>
+<g >
+<title>siphash24 (2,000,000 samples, 0.03%)</title><rect x="1775.7" y="52" width="0.5" height="15.0" fill="rgb(246,192,45)" rx="2" ry="2" />
+<text  x="1778.70" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1268" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1278.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1092" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1102.5" ></text>
+</g>
+<g >
+<title>PyObject_IS_GC (2,000,000 samples, 0.03%)</title><rect x="237.8" y="52" width="0.5" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="240.80" y="62.5" ></text>
+</g>
+<g >
+<title>inherit_special (2,000,000 samples, 0.03%)</title><rect x="1588.7" y="52" width="0.5" height="15.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="1591.69" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1828" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1838.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1908" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1918.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="148" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="158.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1204" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1214.5" ></text>
+</g>
+<g >
+<title>_PyMem_DebugMalloc (2,000,000 samples, 0.03%)</title><rect x="1068.5" y="52" width="0.5" height="15.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="1071.46" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (80,000,000 samples, 1.19%)</title><rect x="238.3" y="84" width="21.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="241.33" y="94.5" ></text>
+</g>
+<g >
+<title>_PyMem_DebugRawAlloc (6,000,000 samples, 0.09%)</title><rect x="1069.0" y="52" width="1.6" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="1071.99" y="62.5" ></text>
+</g>
+<g >
+<title>write_size_t (4,000,000 samples, 0.06%)</title><rect x="1788.9" y="52" width="1.1" height="15.0" fill="rgb(239,160,38)" rx="2" ry="2" />
+<text  x="1791.94" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1988" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1998.5" ></text>
+</g>
+<g >
+<title>read_size_t (18,000,000 samples, 0.27%)</title><rect x="1770.4" y="52" width="4.8" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="1773.40" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="2068" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="2078.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,858,000,000 samples, 42.53%)</title><rect x="303.5" y="68" width="757.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="306.49" y="78.5" >[unknown]</text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1204.1" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1207.08" y="78.5" ></text>
+</g>
+<g >
+<title>__memset_avx2_unaligned_erms (14,000,000 samples, 0.21%)</title><rect x="1228.5" y="52" width="3.7" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="1231.45" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="164" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="174.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1412" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1422.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="436" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="446.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="980" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="990.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="676" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="686.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1786.8" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1789.82" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1060" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1070.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="628" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="638.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1113.5" y="84" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1116.49" y="94.5" ></text>
+</g>
+<g >
+<title>_PyType_Lookup (4,000,000 samples, 0.06%)</title><rect x="1120.4" y="52" width="1.0" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="1123.38" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1012" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1022.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1567.5" y="100" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1570.50" y="110.5" ></text>
+</g>
+<g >
+<title>python3-dbg (16,000,000 samples, 0.24%)</title><rect x="1261.8" y="84" width="4.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1264.83" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1348" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1358.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="564" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="574.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1828" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1838.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="324" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="334.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1908" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1918.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1012" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1022.5" ></text>
+</g>
+<g >
+<title>list_item.lto_priv.0 (138,000,000 samples, 2.05%)</title><rect x="1662.9" y="52" width="36.5" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="1665.86" y="62.5" >lis..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="980" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="990.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="1765.1" y="68" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1768.10" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="324" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="334.5" ></text>
+</g>
+<g >
+<title>r_object (2,000,000 samples, 0.03%)</title><rect x="1769.3" y="52" width="0.6" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="1772.34" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1761.9" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1764.92" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="2068" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="2078.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="292" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="302.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1988" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1998.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1796" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1806.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1233.2" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1236.22" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1604" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1614.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="100" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="852" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="862.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="228" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="238.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="266.4" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="269.40" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1140" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1150.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="299.2" y="244" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="302.25" y="254.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1124" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1134.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="516" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="526.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="788" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="798.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1769.3" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1772.34" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1268" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1278.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1092" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1102.5" ></text>
+</g>
+<g >
+<title>inversion_rule.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1590.3" y="52" width="0.5" height="15.0" fill="rgb(236,142,34)" rx="2" ry="2" />
+<text  x="1593.28" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="164" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="174.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="724" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="734.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1620" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1630.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="212" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="222.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="868" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="878.5" ></text>
+</g>
+<g >
+<title>visit_decref (2,000,000 samples, 0.03%)</title><rect x="1787.9" y="52" width="0.5" height="15.0" fill="rgb(253,220,52)" rx="2" ry="2" />
+<text  x="1790.88" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1114.6" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1117.55" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1070.6" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1073.58" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (80,000,000 samples, 1.19%)</title><rect x="238.3" y="68" width="21.2" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="241.33" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1204" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1214.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1028" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1038.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="340" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="350.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="182.2" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="185.17" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="300.3" y="100" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="303.31" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="964" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="974.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1380" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1390.5" ></text>
+</g>
+<g >
+<title>binary_iop1 (94,000,000 samples, 1.40%)</title><rect x="1236.9" y="52" width="24.9" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="1239.93" y="62.5" >b..</text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1111.9" y="84" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1114.90" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1908" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1918.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="356" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="366.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="756" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="766.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="932" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="942.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1232.2" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1235.16" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1828" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1838.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1956" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1966.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1061.0" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1064.05" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="116" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="126.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="308" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="318.5" ></text>
+</g>
+<g >
+<title>[python3.10d] (2,000,000 samples, 0.03%)</title><rect x="296.1" y="52" width="0.5" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="299.07" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1924" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1934.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1556" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1566.5" ></text>
+</g>
+<g >
+<title>best_base.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1236.4" y="52" width="0.5" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="1239.40" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1172" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1182.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="1767.8" y="68" width="1.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1770.75" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="164" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="174.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="692" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="702.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1972" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1982.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1220" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1230.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="244" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="254.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1844" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1854.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1876" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1886.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1568.0" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1571.03" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="820" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="830.5" ></text>
+</g>
+<g >
+<title>resolve_slotdups (2,000,000 samples, 0.03%)</title><rect x="1775.2" y="52" width="0.5" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="1778.17" y="62.5" ></text>
+</g>
+<g >
+<title>PyLong_AsSsize_t (92,000,000 samples, 1.37%)</title><rect x="73.6" y="52" width="24.3" height="15.0" fill="rgb(243,178,42)" rx="2" ry="2" />
+<text  x="76.57" y="62.5" >P..</text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1111.9" y="68" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1114.90" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="2004" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="2014.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="276" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="286.5" ></text>
+</g>
+<g >
+<title>python3-dbg (68,000,000 samples, 1.01%)</title><rect x="164.2" y="84" width="18.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="167.16" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="2036" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="2046.5" ></text>
+</g>
+<g >
+<title>_PyMem_DebugCheckAddress (26,000,000 samples, 0.39%)</title><rect x="1061.6" y="52" width="6.9" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1064.58" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1044" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1054.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1844" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1854.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="72.0" y="84" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="74.98" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="772" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="782.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="132" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="142.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="916" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="926.5" ></text>
+</g>
+<g >
+<title>listiter_dealloc.lto_priv.0 (6,000,000 samples, 0.09%)</title><rect x="1739.1" y="52" width="1.6" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="1742.14" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="804" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="814.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="580" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="590.5" ></text>
+</g>
+<g >
+<title>python3-dbg (26,000,000 samples, 0.39%)</title><rect x="10.5" y="84" width="6.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="13.53" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1252" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1262.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1108" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1118.5" ></text>
+</g>
+<g >
+<title>[unknown] (92,000,000 samples, 1.37%)</title><rect x="73.6" y="68" width="24.3" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="76.57" y="78.5" >[..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1076" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1086.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="420" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="430.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="84" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="948" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="958.5" ></text>
+</g>
+<g >
+<title>_PyPegen_expect_token (2,000,000 samples, 0.03%)</title><rect x="1119.9" y="52" width="0.5" height="15.0" fill="rgb(213,38,9)" rx="2" ry="2" />
+<text  x="1122.85" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1316" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1326.5" ></text>
+</g>
+<g >
+<title>pycore_interp_init (2,000,000 samples, 0.03%)</title><rect x="1767.2" y="52" width="0.6" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="1770.22" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1188" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1198.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1763.5" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1766.51" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1776.8" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1779.76" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="708" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="718.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1812" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1822.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1476" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1486.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="884" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="894.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="2004" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="2014.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="297.7" y="228" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="300.66" y="238.5" ></text>
+</g>
+<g >
+<title>slotptr (2,000,000 samples, 0.03%)</title><rect x="1776.2" y="52" width="0.6" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="1779.23" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1232.2" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1235.16" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1892" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1902.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1476" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1486.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1844" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1854.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="2020" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="2030.5" ></text>
+</g>
+<g >
+<title>sre_ucs1_charset (2,000,000 samples, 0.03%)</title><rect x="1776.8" y="52" width="0.5" height="15.0" fill="rgb(230,117,28)" rx="2" ry="2" />
+<text  x="1779.76" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1972" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1982.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1188" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1198.5" ></text>
+</g>
+<g >
+<title>__GI___fstatat64 (2,000,000 samples, 0.03%)</title><rect x="298.7" y="244" width="0.5" height="15.0" fill="rgb(227,101,24)" rx="2" ry="2" />
+<text  x="301.72" y="254.5" ></text>
+</g>
+<g >
+<title>untrack_tuples (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="52" width="0.5" height="15.0" fill="rgb(218,62,15)" rx="2" ry="2" />
+<text  x="1790.35" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1181.3" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1184.30" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1044" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1054.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="299.8" y="100" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="302.78" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1122.5" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1125.50" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="196" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="206.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1812" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1822.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="804" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="814.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="580" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="590.5" ></text>
+</g>
+<g >
+<title>_PyMem_DebugRawFree (2,000,000 samples, 0.03%)</title><rect x="1070.6" y="52" width="0.5" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="1073.58" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (104,000,000 samples, 1.55%)</title><rect x="266.9" y="84" width="27.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="269.93" y="94.5" >p..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1108" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1118.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1252" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1262.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1284" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1294.5" ></text>
+</g>
+<g >
+<title>python3-dbg (30,000,000 samples, 0.45%)</title><rect x="1777.3" y="84" width="7.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1780.29" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="500" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="510.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="916" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="926.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="532" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="542.5" ></text>
+</g>
+<g >
+<title>python3-dbg (92,000,000 samples, 1.37%)</title><rect x="73.6" y="84" width="24.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="76.57" y="94.5" >p..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1300" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1310.5" ></text>
+</g>
+<g >
+<title>python3-dbg (116,000,000 samples, 1.73%)</title><rect x="1631.6" y="84" width="30.7" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1634.60" y="94.5" >py..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="484" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="494.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1428" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1438.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="820" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="830.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="836" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="846.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1972" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1982.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1115.6" y="68" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1118.61" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1588.7" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1591.69" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1940" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1950.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1181.3" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1184.30" y="94.5" ></text>
+</g>
+<g >
+<title>PyErr_CheckSignals (2,000,000 samples, 0.03%)</title><rect x="10.0" y="52" width="0.5" height="15.0" fill="rgb(237,149,35)" rx="2" ry="2" />
+<text  x="13.00" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="548" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="558.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="276" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="286.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1364" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1374.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="297.1" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="300.13" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="2052" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="2062.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (68,000,000 samples, 1.01%)</title><rect x="1740.7" y="84" width="18.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1743.73" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="612" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="622.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1860" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1870.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="2004" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="2014.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1172" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1182.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1812" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1822.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="900" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="910.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="184.8" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="187.82" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1444" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1454.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="468" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="478.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1412" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1422.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="596" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="606.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1716" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1726.5" ></text>
+</g>
+<g >
+<title>python3-dbg (6,000,000 samples, 0.09%)</title><rect x="1069.0" y="84" width="1.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1071.99" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="298.2" y="244" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="254.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1572" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1582.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="404" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="414.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1060.5" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1063.52" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1785.2" y="84" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1788.23" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1348" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1358.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1227.9" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1230.92" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="564" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="574.5" ></text>
+</g>
+<g >
+<title>os_getpgid.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1232.7" y="68" width="0.5" height="15.0" fill="rgb(226,101,24)" rx="2" ry="2" />
+<text  x="1235.69" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1764" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1774.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1786.8" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1789.82" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1508" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1518.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1684" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1694.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="436" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="446.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="676" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="686.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1060" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1070.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1764.0" y="68" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1767.04" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="628" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="638.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1156" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1166.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,858,000,000 samples, 42.53%)</title><rect x="303.5" y="84" width="757.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="306.49" y="94.5" >python3-dbg</text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="295.0" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="298.01" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="116" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="126.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1113.0" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1115.96" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="100" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1332" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1342.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1122.0" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1124.97" y="78.5" ></text>
+</g>
+<g >
+<title>listiter_next.lto_priv.0 (68,000,000 samples, 1.01%)</title><rect x="1740.7" y="52" width="18.0" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1743.73" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1236" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1246.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1492" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1502.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1652" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1662.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1540" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1550.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="84" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1121.4" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1124.44" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1684" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1694.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="260" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="270.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1785.8" y="68" width="1.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1788.76" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1227.9" y="100" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1230.92" y="110.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1588.7" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1591.69" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1120.4" y="84" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1123.38" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (26,000,000 samples, 0.39%)</title><rect x="1061.6" y="84" width="6.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1064.58" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="294.5" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="297.48" y="78.5" ></text>
+</g>
+<g >
+<title>__brk (2,000,000 samples, 0.03%)</title><rect x="300.3" y="68" width="0.5" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="303.31" y="78.5" ></text>
+</g>
+<g >
+<title>PyGILState_Check (6,000,000 samples, 0.09%)</title><rect x="72.0" y="52" width="1.6" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="74.98" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="1739.1" y="68" width="1.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1742.14" y="78.5" ></text>
+</g>
+<g >
+<title>_Py_NewReference (86,000,000 samples, 1.28%)</title><rect x="1181.3" y="52" width="22.8" height="15.0" fill="rgb(227,104,24)" rx="2" ry="2" />
+<text  x="1184.30" y="62.5" >_..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1460" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1470.5" ></text>
+</g>
+<g >
+<title>python3-dbg (6,000,000 samples, 0.09%)</title><rect x="97.9" y="84" width="1.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="100.94" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="868" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="878.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1652" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1662.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="212" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="222.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1120.4" y="68" width="1.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1123.38" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="724" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="734.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1620" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1630.5" ></text>
+</g>
+<g >
+<title>insert_to_usedpool (2,000,000 samples, 0.03%)</title><rect x="1589.2" y="52" width="0.6" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="1592.22" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="260" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="270.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1070.6" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1073.58" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="516" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="526.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1124" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1134.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="788" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="798.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1460" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1470.5" ></text>
+</g>
+<g >
+<title>new_keys_object.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1763.5" y="52" width="0.5" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1766.51" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="237.8" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="240.80" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="932" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="942.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="295.0" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="298.01" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="116" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="126.5" ></text>
+</g>
+<g >
+<title>dict_traverse.lto_priv.0 (6,000,000 samples, 0.09%)</title><rect x="1365.1" y="52" width="1.6" height="15.0" fill="rgb(245,185,44)" rx="2" ry="2" />
+<text  x="1368.13" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (254,000,000 samples, 3.78%)</title><rect x="1399.0" y="84" width="67.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1402.04" y="94.5" >python3..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1684" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1694.5" ></text>
+</g>
+<g >
+<title>_PyObject_GetMethod (2,000,000 samples, 0.03%)</title><rect x="1114.6" y="52" width="0.5" height="15.0" fill="rgb(223,86,20)" rx="2" ry="2" />
+<text  x="1117.55" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1492" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1502.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1732" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1742.5" ></text>
+</g>
+<g >
+<title>binary_iop (16,000,000 samples, 0.24%)</title><rect x="1261.8" y="52" width="4.3" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="1264.83" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1568.0" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1571.03" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="292" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="302.5" ></text>
+</g>
+<g >
+<title>python3-dbg (20,000,000 samples, 0.30%)</title><rect x="1156.4" y="68" width="5.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1159.40" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1236.4" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1239.40" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1156" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1166.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1652" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1662.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1700" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1710.5" ></text>
+</g>
+<g >
+<title>[unknown] (12,000,000 samples, 0.18%)</title><rect x="1699.4" y="68" width="3.2" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1702.41" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1508" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1518.5" ></text>
+</g>
+<g >
+<title>_PyEval_MakeFrameVector (2,000,000 samples, 0.03%)</title><rect x="1060.5" y="52" width="0.5" height="15.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="1063.52" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1588.2" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1591.16" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1228.5" y="100" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1231.45" y="110.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1760.3" y="84" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1763.33" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="468" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="478.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="228" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="238.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="596" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="606.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="10.0" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="13.00" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="852" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="862.5" ></text>
+</g>
+<g >
+<title>unicode_format_arg_parse (2,000,000 samples, 0.03%)</title><rect x="1786.8" y="52" width="0.6" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1789.82" y="62.5" ></text>
+</g>
+<g >
+<title>meth_dealloc.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1761.9" y="52" width="0.6" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="1764.92" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1140" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1150.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="900" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="910.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1444" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1454.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1228.5" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1231.45" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1572" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1582.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="404" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="414.5" ></text>
+</g>
+<g >
+<title>PyObject_GetItem (192,000,000 samples, 2.86%)</title><rect x="185.4" y="52" width="50.8" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="188.35" y="62.5" >PyObj..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1780" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1790.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1604" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1614.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="2084" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1368.13" y="2094.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1748" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1758.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="100" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="772" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="782.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1668" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1678.5" ></text>
+</g>
+<g >
+<title>PyNumber_Multiply (68,000,000 samples, 1.01%)</title><rect x="164.2" y="52" width="18.0" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="167.16" y="62.5" ></text>
+</g>
+<g >
+<title>tupleiter_dealloc.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1785.2" y="52" width="0.6" height="15.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1788.23" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1567.5" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1570.50" y="78.5" ></text>
+</g>
+<g >
+<title>arena_map_is_used (6,000,000 samples, 0.09%)</title><rect x="1234.8" y="52" width="1.6" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="1237.81" y="62.5" ></text>
+</g>
+<g >
+<title>PyNumber_InPlaceSubtract (14,000,000 samples, 0.21%)</title><rect x="160.5" y="52" width="3.7" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="163.45" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1785.2" y="100" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1788.23" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="884" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="894.5" ></text>
+</g>
+<g >
+<title>python3-dbg (206,000,000 samples, 3.07%)</title><rect x="17.4" y="68" width="54.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="20.42" y="78.5" >pytho..</text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1121.4" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1124.44" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1068.5" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1071.46" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="708" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="718.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1076" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1086.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="420" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="430.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1316" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1326.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="948" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="958.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="660" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="670.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="372" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="382.5" ></text>
+</g>
+<g >
+<title>float_pow.lto_priv.0 (26,000,000 samples, 0.39%)</title><rect x="1523.5" y="52" width="6.9" height="15.0" fill="rgb(208,15,3)" rx="2" ry="2" />
+<text  x="1526.53" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="740" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="750.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="644" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="654.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="996" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1006.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1220" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1230.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="244" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="254.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1396" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1406.5" ></text>
+</g>
+<g >
+<title>get_gc_state (2,000,000 samples, 0.03%)</title><rect x="1588.2" y="52" width="0.5" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="1591.16" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="692" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="702.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1748" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1758.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="1523.5" y="68" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1526.53" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1668" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1678.5" ></text>
+</g>
+<g >
+<title>visit_reachable (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="52" width="0.5" height="15.0" fill="rgb(252,216,51)" rx="2" ry="2" />
+<text  x="1791.41" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1556" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1566.5" ></text>
+</g>
+<g >
+<title>python3-dbg (12,000,000 samples, 0.18%)</title><rect x="1229.0" y="84" width="3.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1231.98" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="308" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="318.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="388" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="398.5" ></text>
+</g>
+<g >
+<title>PyNumber_Add (6,000,000 samples, 0.09%)</title><rect x="97.9" y="52" width="1.6" height="15.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="100.94" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1588" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1598.5" ></text>
+</g>
+<g >
+<title>python3-dbg (6,000,000 samples, 0.09%)</title><rect x="1739.1" y="84" width="1.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1742.14" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="180" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="190.5" ></text>
+</g>
+<g >
+<title>lookdict_unicode_nodummy (4,000,000 samples, 0.06%)</title><rect x="1760.3" y="52" width="1.1" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="1763.33" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1769.9" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1772.87" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1113.5" y="68" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1116.49" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1524" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1534.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="452" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="462.5" ></text>
+</g>
+<g >
+<title>_PyUnicode_CheckConsistency (2,000,000 samples, 0.03%)</title><rect x="1121.4" y="52" width="0.6" height="15.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="1124.44" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="294.5" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="297.48" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1775.2" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1778.17" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="301.4" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="304.37" y="94.5" ></text>
+</g>
+<g >
+<title>float_dealloc.lto_priv.0 (254,000,000 samples, 3.78%)</title><rect x="1399.0" y="52" width="67.3" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="1402.04" y="62.5" >float_d..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="548" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="558.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1364" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1374.5" ></text>
+</g>
+<g >
+<title>[unknown] (116,000,000 samples, 1.73%)</title><rect x="1631.6" y="68" width="30.7" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1634.60" y="78.5" >[u..</text>
+</g>
+<g >
+<title>[unknown] (74,000,000 samples, 1.10%)</title><rect x="1161.7" y="68" width="19.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1164.70" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (126,000,000 samples, 1.88%)</title><rect x="1123.0" y="68" width="33.4" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1126.03" y="78.5" >[u..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1588" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1598.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="484" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="494.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1662.3" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1665.33" y="78.5" ></text>
+</g>
+<g >
+<title>_PyGILState_GetThisThreadState (2,000,000 samples, 0.03%)</title><rect x="1061.0" y="52" width="0.6" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="1064.05" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="184.8" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="187.82" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (126,000,000 samples, 1.88%)</title><rect x="1123.0" y="84" width="33.4" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1126.03" y="94.5" >py..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1300" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1310.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="100" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="110.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1122.5" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1125.50" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="298.2" y="292" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="302.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1524" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1534.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="836" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="846.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="452" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="462.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1428" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1438.5" ></text>
+</g>
+<g >
+<title>_PyObject_Malloc (14,000,000 samples, 0.21%)</title><rect x="1115.6" y="52" width="3.7" height="15.0" fill="rgb(242,171,41)" rx="2" ry="2" />
+<text  x="1118.61" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="612" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="622.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1396" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1406.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="740" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="750.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="996" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1006.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="644" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="654.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1636" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1646.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="388" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="398.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="300.8" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="303.84" y="94.5" ></text>
+</g>
+<g >
+<title>pthread_getspecific@@GLIBC_2.34 (8,000,000 samples, 0.12%)</title><rect x="1765.1" y="52" width="2.1" height="15.0" fill="rgb(206,8,1)" rx="2" ry="2" />
+<text  x="1768.10" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1668" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1678.5" ></text>
+</g>
+<g >
+<title>forbidden_name.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1567.5" y="52" width="0.5" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1570.50" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1748" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1758.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="660" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="670.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="372" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="382.5" ></text>
+</g>
+<g >
+<title>python3-dbg (48,000,000 samples, 0.71%)</title><rect x="1568.6" y="84" width="12.7" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1571.56" y="94.5" ></text>
+</g>
+<g >
+<title>lookdict_unicode (4,000,000 samples, 0.06%)</title><rect x="1759.3" y="52" width="1.0" height="15.0" fill="rgb(214,41,9)" rx="2" ry="2" />
+<text  x="1762.27" y="62.5" ></text>
+</g>
+<g >
+<title>new_dict (2,000,000 samples, 0.03%)</title><rect x="1763.0" y="52" width="0.5" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1765.98" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="532" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="542.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="500" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="510.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1284" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1294.5" ></text>
+</g>
+<g >
+<title>[unknown] (16,000,000 samples, 0.24%)</title><rect x="1261.8" y="68" width="4.3" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1264.83" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="116" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="126.5" ></text>
+</g>
+<g >
+<title>python3-dbg (14,000,000 samples, 0.21%)</title><rect x="160.5" y="84" width="3.7" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="163.45" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="296.1" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="299.07" y="78.5" ></text>
+</g>
+<g >
+<title>_PyObject_GenericGetAttrWithDict (4,000,000 samples, 0.06%)</title><rect x="1113.5" y="52" width="1.1" height="15.0" fill="rgb(206,6,1)" rx="2" ry="2" />
+<text  x="1116.49" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="164" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="174.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="196" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="206.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1589.2" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1592.22" y="78.5" ></text>
+</g>
+<g >
+<title>_Py_Dealloc (74,000,000 samples, 1.10%)</title><rect x="1161.7" y="52" width="19.6" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1164.70" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="2068" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="2078.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1567.5" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1570.50" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1988" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1998.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1796" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1806.5" ></text>
+</g>
+<g >
+<title>[unknown] (68,000,000 samples, 1.01%)</title><rect x="164.2" y="68" width="18.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="167.16" y="78.5" ></text>
+</g>
+<g >
+<title>allocate_from_new_pool (2,000,000 samples, 0.03%)</title><rect x="299.2" y="228" width="0.6" height="15.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="302.25" y="238.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="532" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="542.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="500" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="510.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="916" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="926.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1589.2" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1592.22" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (8,000,000 samples, 0.12%)</title><rect x="1362.5" y="68" width="2.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1365.48" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="804" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="814.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="580" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="590.5" ></text>
+</g>
+<g >
+<title>python3-dbg (84,000,000 samples, 1.25%)</title><rect x="1204.6" y="68" width="22.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1207.61" y="78.5" >p..</text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1788.9" y="68" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.94" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1108" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1118.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="72.0" y="68" width="1.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="74.98" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="180" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="190.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="196" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="206.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1232.7" y="100" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1235.69" y="110.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1044" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1054.5" ></text>
+</g>
+<g >
+<title>python3-dbg (140,000,000 samples, 2.08%)</title><rect x="1530.4" y="84" width="37.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1533.42" y="94.5" >pyt..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="548" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="558.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="276" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="286.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1364" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1374.5" ></text>
+</g>
+<g >
+<title>binary_op (34,000,000 samples, 0.51%)</title><rect x="1355.6" y="52" width="9.0" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="1358.60" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1588" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1598.5" ></text>
+</g>
+<g >
+<title>[unknown] (14,000,000 samples, 0.21%)</title><rect x="160.5" y="68" width="3.7" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="163.45" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="820" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="830.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="148" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="158.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="836" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="846.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1524" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1534.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1428" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1438.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="484" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="494.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="236.2" y="68" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="239.21" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (26,000,000 samples, 0.39%)</title><rect x="1061.6" y="68" width="6.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1064.58" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1220" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1230.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="612" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="622.5" ></text>
+</g>
+<g >
+<title>python3-dbg (216,000,000 samples, 3.21%)</title><rect x="1466.3" y="84" width="57.2" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1469.32" y="94.5" >python..</text>
+</g>
+<g >
+<title>PyNumber_AsSsize_t (4,000,000 samples, 0.06%)</title><rect x="296.6" y="68" width="1.1" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="299.60" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1785.8" y="84" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1788.76" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1908" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1918.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1956" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1966.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1828" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1838.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1556" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1566.5" ></text>
+</g>
+<g >
+<title>PyThread_tss_is_created (2,000,000 samples, 0.03%)</title><rect x="266.4" y="52" width="0.5" height="15.0" fill="rgb(239,156,37)" rx="2" ry="2" />
+<text  x="269.40" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1589.8" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1592.75" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1220" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1230.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="612" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="622.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1396" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1406.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1172" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1182.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="996" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1006.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="644" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="654.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="740" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="750.5" ></text>
+</g>
+<g >
+<title>python3-dbg (322,000,000 samples, 4.79%)</title><rect x="1266.1" y="84" width="85.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1269.07" y="94.5" >python3-dbg</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1556" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1566.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1796" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1806.5" ></text>
+</g>
+<g >
+<title>python3-dbg (138,000,000 samples, 2.05%)</title><rect x="1662.9" y="68" width="36.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1665.86" y="78.5" >pyt..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="388" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="398.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1775.2" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1778.17" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1956" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1966.5" ></text>
+</g>
+<g >
+<title>PyFloat_FromDouble (232,000,000 samples, 3.45%)</title><rect x="10.5" y="52" width="61.5" height="15.0" fill="rgb(253,222,53)" rx="2" ry="2" />
+<text  x="13.53" y="62.5" >PyFloa..</text>
+</g>
+<g >
+<title>python3-dbg (26,000,000 samples, 0.39%)</title><rect x="1355.6" y="84" width="6.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1358.60" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="548" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="558.5" ></text>
+</g>
+<g >
+<title>__GI___execve (2,000,000 samples, 0.03%)</title><rect x="298.2" y="308" width="0.5" height="15.0" fill="rgb(230,117,28)" rx="2" ry="2" />
+<text  x="301.19" y="318.5" ></text>
+</g>
+<g >
+<title>rangeiter_next.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1769.9" y="52" width="0.5" height="15.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="1772.87" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1364" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1374.5" ></text>
+</g>
+<g >
+<title>python3-dbg (192,000,000 samples, 2.86%)</title><rect x="185.4" y="84" width="50.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="188.35" y="94.5" >pytho..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="164" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="174.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="484" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="494.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="298.2" y="324" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="334.5" ></text>
+</g>
+<g >
+<title>PyTuple_GetItem (104,000,000 samples, 1.55%)</title><rect x="266.9" y="52" width="27.6" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="269.93" y="62.5" >P..</text>
+</g>
+<g >
+<title>python3-dbg (122,000,000 samples, 1.82%)</title><rect x="1366.7" y="84" width="32.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1369.72" y="94.5" >py..</text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="295.5" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="298.54" y="78.5" ></text>
+</g>
+<g >
+<title>_PyObject_Free (4,000,000 samples, 0.06%)</title><rect x="1111.9" y="52" width="1.1" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="1114.90" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="836" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="846.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="452" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="462.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1769.9" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1772.87" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1775.7" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1778.70" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1068.5" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1071.46" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1428" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1438.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1796" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1806.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1252" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1262.5" ></text>
+</g>
+<g >
+<title>[unknown] (140,000,000 samples, 2.08%)</title><rect x="1530.4" y="68" width="37.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1533.42" y="78.5" >[un..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="148" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="158.5" ></text>
+</g>
+<g >
+<title>[unknown] (154,000,000 samples, 2.29%)</title><rect x="1071.1" y="68" width="40.8" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1074.11" y="78.5" >[un..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="532" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="542.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="500" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="510.5" ></text>
+</g>
+<g >
+<title>list_extend.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1662.3" y="52" width="0.6" height="15.0" fill="rgb(213,36,8)" rx="2" ry="2" />
+<text  x="1665.33" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (154,000,000 samples, 2.29%)</title><rect x="1590.8" y="68" width="40.8" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1593.81" y="78.5" >[un..</text>
+</g>
+<g >
+<title>PyUnicode_New (2,000,000 samples, 0.03%)</title><rect x="295.0" y="52" width="0.5" height="15.0" fill="rgb(233,130,31)" rx="2" ry="2" />
+<text  x="298.01" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="297.7" y="212" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="222.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1787.9" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1790.88" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (94,000,000 samples, 1.40%)</title><rect x="1236.9" y="84" width="24.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1239.93" y="94.5" >p..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="196" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="206.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1476" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1486.5" ></text>
+</g>
+<g >
+<title>pow@@GLIBC_2.29 (4,000,000 samples, 0.06%)</title><rect x="1764.0" y="52" width="1.1" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="1767.04" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1188" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1198.5" ></text>
+</g>
+<g >
+<title>insertdict (2,000,000 samples, 0.03%)</title><rect x="1589.8" y="52" width="0.5" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1592.75" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1956" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1966.5" ></text>
+</g>
+<g >
+<title>binary_op1 (338,000,000 samples, 5.03%)</title><rect x="1266.1" y="52" width="89.5" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="1269.07" y="62.5" >binary_op1</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="372" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="382.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="660" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="670.5" ></text>
+</g>
+<g >
+<title>list_traverse.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="52" width="0.5" height="15.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="1741.61" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="132" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="142.5" ></text>
+</g>
+<g >
+<title>[unknown] (18,000,000 samples, 0.27%)</title><rect x="1770.4" y="68" width="4.8" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1773.40" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="73.0" y="68" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="76.04" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1348" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1358.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="564" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="574.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1924" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1934.5" ></text>
+</g>
+<g >
+<title>PyNumber_Power (2,000,000 samples, 0.03%)</title><rect x="182.2" y="52" width="0.5" height="15.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="185.17" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="1069.0" y="68" width="1.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1071.99" y="78.5" ></text>
+</g>
+<g >
+<title>pymalloc_pool_extend (6,000,000 samples, 0.09%)</title><rect x="1767.8" y="52" width="1.5" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="1770.75" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1115.6" y="84" width="1.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1118.61" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="2020" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="2030.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="298.2" y="276" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="286.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1844" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1854.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="676" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="686.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1060" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1070.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="436" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="446.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="628" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="638.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1892" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1902.5" ></text>
+</g>
+<g >
+<title>__strncmp_avx2 (2,000,000 samples, 0.03%)</title><rect x="1232.2" y="52" width="0.5" height="15.0" fill="rgb(229,110,26)" rx="2" ry="2" />
+<text  x="1235.16" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="84" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="1234.8" y="68" width="1.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1237.81" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="2036" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="2046.5" ></text>
+</g>
+<g >
+<title>[unknown] (26,000,000 samples, 0.39%)</title><rect x="1355.6" y="68" width="6.9" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1358.60" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="900" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="910.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1444" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1454.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="468" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="478.5" ></text>
+</g>
+<g >
+<title>malloc (2,000,000 samples, 0.03%)</title><rect x="1761.4" y="52" width="0.5" height="15.0" fill="rgb(230,119,28)" rx="2" ry="2" />
+<text  x="1764.39" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1767.2" y="84" width="0.6" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1770.22" y="94.5" ></text>
+</g>
+<g >
+<title>__memset_avx2_unaligned_erms (2,000,000 samples, 0.03%)</title><rect x="301.4" y="68" width="0.5" height="15.0" fill="rgb(223,84,20)" rx="2" ry="2" />
+<text  x="304.37" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="596" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="606.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1412" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1422.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1876" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1886.5" ></text>
+</g>
+<g >
+<title>[unknown] (8,000,000 samples, 0.12%)</title><rect x="297.7" y="132" width="2.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="300.66" y="142.5" ></text>
+</g>
+<g >
+<title>PyType_IsSubtype (2,000,000 samples, 0.03%)</title><rect x="294.5" y="52" width="0.5" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="297.48" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1604" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1614.5" ></text>
+</g>
+<g >
+<title>[unknown] (216,000,000 samples, 3.21%)</title><rect x="1466.3" y="68" width="57.2" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1469.32" y="78.5" >[unkno..</text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="301.9" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="304.90" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="404" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="414.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="1760.3" y="68" width="1.1" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1763.33" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1227.9" y="84" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1230.92" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1785.2" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1788.23" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="68" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="260" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="270.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1204" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1214.5" ></text>
+</g>
+<g >
+<title>_PyObject_GC_Alloc (2,000,000 samples, 0.03%)</title><rect x="1113.0" y="52" width="0.5" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="1115.96" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="2036" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="2046.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="97.9" y="68" width="1.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="100.94" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="2084" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1741.61" y="2094.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1620" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1630.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1940" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1950.5" ></text>
+</g>
+<g >
+<title>[libm.so.6] (2,000,000 samples, 0.03%)</title><rect x="295.5" y="52" width="0.6" height="15.0" fill="rgb(208,16,4)" rx="2" ry="2" />
+<text  x="298.54" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1924" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1934.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1268" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1278.5" ></text>
+</g>
+<g >
+<title>python3-dbg (4,000,000 samples, 0.06%)</title><rect x="1759.3" y="68" width="1.0" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1762.27" y="78.5" ></text>
+</g>
+<g >
+<title>__errno_location (2,000,000 samples, 0.03%)</title><rect x="1204.1" y="52" width="0.5" height="15.0" fill="rgb(233,130,31)" rx="2" ry="2" />
+<text  x="1207.08" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1460" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1470.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1332" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1342.5" ></text>
+</g>
+<g >
+<title>_PyUnicode_FromUCS1.lto_priv.0 (2,000,000 samples, 0.03%)</title><rect x="1122.5" y="52" width="0.5" height="15.0" fill="rgb(217,58,13)" rx="2" ry="2" />
+<text  x="1125.50" y="62.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="296.1" y="84" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="299.07" y="94.5" ></text>
+</g>
+<g >
+<title>python3-dbg (86,000,000 samples, 1.28%)</title><rect x="1702.6" y="84" width="22.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1705.59" y="94.5" >p..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1860" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1870.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="2004" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="2014.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="2052" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="2062.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1876" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1886.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1924" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1934.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1380" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1390.5" ></text>
+</g>
+<g >
+<title>[unknown] (68,000,000 samples, 1.01%)</title><rect x="1740.7" y="68" width="18.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1743.73" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="148" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="158.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.9" y="68" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.88" y="78.5" ></text>
+</g>
+<g >
+<title>python3-dbg (26,000,000 samples, 0.39%)</title><rect x="1581.3" y="68" width="6.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1584.27" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="964" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="974.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1940" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1950.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1332" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1342.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="756" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="766.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="356" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="366.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1972" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1982.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="2020" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="2030.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1028" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1038.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1492" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1502.5" ></text>
+</g>
+<g >
+<title>float_mul.lto_priv.0 (216,000,000 samples, 3.21%)</title><rect x="1466.3" y="52" width="57.2" height="15.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="1469.32" y="62.5" >float_..</text>
+</g>
+<g >
+<title>_PyTuple_FromArray (2,000,000 samples, 0.03%)</title><rect x="1114.6" y="68" width="0.5" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1117.55" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="340" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="350.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1892" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1902.5" ></text>
+</g>
+<g >
+<title>[unknown] (4,000,000 samples, 0.06%)</title><rect x="298.2" y="228" width="1.0" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="238.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1620" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1630.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1860" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1870.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1876" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1886.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="2052" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="2062.5" ></text>
+</g>
+<g >
+<title>[unknown] (254,000,000 samples, 3.78%)</title><rect x="1399.0" y="68" width="67.3" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1402.04" y="78.5" >[unknown]</text>
+</g>
+<g >
+<title>python3-dbg (8,000,000 samples, 0.12%)</title><rect x="182.7" y="84" width="2.1" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="185.70" y="94.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="132" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="142.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1092" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1102.5" ></text>
+</g>
+<g >
+<title>[unknown] (48,000,000 samples, 0.71%)</title><rect x="1568.6" y="68" width="12.7" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1571.56" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1412" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1422.5" ></text>
+</g>
+<g >
+<title>[unknown] (6,000,000 samples, 0.09%)</title><rect x="298.2" y="212" width="1.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="301.19" y="222.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="2020" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="2030.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="2036" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="2046.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1892" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1902.5" ></text>
+</g>
+<g >
+<title>[unknown] (24,000,000 samples, 0.36%)</title><rect x="296.6" y="52" width="6.4" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="299.60" y="62.5" ></text>
+</g>
+<g >
+<title>PyEval_GetBuiltins (2,000,000 samples, 0.03%)</title><rect x="297.7" y="196" width="0.5" height="15.0" fill="rgb(219,66,15)" rx="2" ry="2" />
+<text  x="300.66" y="206.5" ></text>
+</g>
+<g >
+<title>_Py_CheckSlotResult (2,000,000 samples, 0.03%)</title><rect x="299.8" y="68" width="0.5" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="302.78" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1572" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1582.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1940" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1950.5" ></text>
+</g>
+<g >
+<title>float_sub.lto_priv.0 (140,000,000 samples, 2.08%)</title><rect x="1530.4" y="52" width="37.1" height="15.0" fill="rgb(235,142,33)" rx="2" ry="2" />
+<text  x="1533.42" y="62.5" >flo..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1604" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1614.5" ></text>
+</g>
+<g >
+<title>python3-dbg (26,000,000 samples, 0.39%)</title><rect x="259.5" y="68" width="6.9" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="262.52" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="324" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="334.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1348" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1358.5" ></text>
+</g>
+<g >
+<title>_PyObject_VectorcallTstate.lto_priv.10 (2,000,000 samples, 0.03%)</title><rect x="1119.3" y="52" width="0.6" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="1122.32" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="564" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="574.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1812" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1822.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1156" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1166.5" ></text>
+</g>
+<g >
+<title>_PyUnicode_FromId (2,000,000 samples, 0.03%)</title><rect x="1122.0" y="52" width="0.5" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="1124.97" y="62.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="1012" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="1022.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="1860" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="1870.5" ></text>
+</g>
+<g >
+<title>[unknown] (104,000,000 samples, 1.55%)</title><rect x="266.9" y="68" width="27.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="269.93" y="78.5" >[..</text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1788.4" y="1508" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1791.41" y="1518.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1365.1" y="980" width="0.6" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1368.13" y="990.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="436" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="446.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="676" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="686.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="1060" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="1070.5" ></text>
+</g>
+<g >
+<title>python3-dbg (2,000,000 samples, 0.03%)</title><rect x="1761.4" y="68" width="0.5" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="1764.39" y="78.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1738.6" y="2052" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1741.61" y="2062.5" ></text>
+</g>
+<g >
+<title>[unknown] (2,000,000 samples, 0.03%)</title><rect x="1787.4" y="628" width="0.5" height="15.0" fill="rgb(210,24,5)" rx="2" ry="2" />
+<text  x="1790.35" y="638.5" ></text>
+</g>
+<g >
+<title>__ieee754_pow_fma (84,000,000 samples, 1.25%)</title><rect x="1204.6" y="52" width="22.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1207.61" y="62.5" >_..</text>
+</g>
+</g>
+</svg>

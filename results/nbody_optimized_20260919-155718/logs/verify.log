@@ -1,0 +1,2 @@
+verify: OK  e_final=-0.169087605 rel_drift=7.359e-05
+cross-check vs baseline: base=-0.169087605235 opt=-0.169087605235 rel_diff=3.283e-16  MATCH

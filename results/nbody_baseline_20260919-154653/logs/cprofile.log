@@ -1,0 +1,5 @@
+bodies=5 pairs=10 steps=20000 loops=1
+elapsed=0.357546 s  357.546 ms/simulation
+energy=-0.169089263
+step_rate=55.94 ksteps/s  ~16.78 MFLOP/s (est.)
+RESULT total_sec=0.357546 loops=1 ms_per_sim=357.5463 energy=-0.169089263 ksteps_per_sec=55.9368

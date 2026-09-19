@@ -1,0 +1,26 @@
+==========================================================================
+                     PERFORMANCE COMPARISON — raytrace                    
+==========================================================================
+
+Source: clean-timing phase only (no profiler attached).
+Statistic: MEDIAN of independent processes — robust to host hiccups.
+
+metric                baseline       optimized           delta
+--------------------------------------------------------------------------
+samples                     11              11                
+min                 4.116848 s      3.076778 s     -1.040070 s
+median              4.122267 s      3.083986 s     -1.038281 s
+mean                4.129439 s      3.085496 s     -1.043944 s
+max                 4.185277 s      3.096205 s     -1.089072 s
+stdev               0.019479 s      0.006602 s     -0.012877 s
+rel stdev                0.47%           0.21%                
+
+==========================================================================
+  SPEEDUP     : 1.3367x
+  IMPROVEMENT : 25.19 %   (time reduction)
+  PROJECT BAR : 7.00 %
+  VERDICT     : PASS
+==========================================================================
+
+Signal check: improvement (25.19%) exceeds 2x noise (0.47%). OK.
+Min-vs-min speedup (least-noise estimate): 1.3380x (25.26% improvement)

@@ -1,0 +1,12 @@
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+perf_event__synthesize_bpf_events: failed to synthesize bpf images: No such file or directory
+Couldn't synthesize bpf events.
+bodies=5 pairs=10 steps=20000 loops=5
+elapsed=2.831103 s  566.221 ms/simulation
+energy=-0.169089263
+step_rate=35.32 ksteps/s  ~10.60 MFLOP/s (est.)
+RESULT total_sec=2.831103 loops=5 ms_per_sim=566.2207 energy=-0.169089263 ksteps_per_sec=35.3219
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.210 MB /root/HW-SW-FULL/results/nbody_baseline_20260919-155502/perf/baseline.data (3360 samples) ]

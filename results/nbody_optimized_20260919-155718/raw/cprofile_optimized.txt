@@ -1,0 +1,195 @@
+======================================================================
+TOP 40 BY TOTTIME (self time, excludes subcalls)
+======================================================================
+Sat Sep 19 15:59:00 2026    /root/HW-SW-FULL/results/nbody_optimized_20260919-155718/raw/cprofile_optimized.pstats
+
+         204157 function calls (204077 primitive calls) in 0.378 seconds
+
+   Ordered by: internal time
+   List reduced from 310 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.351    0.351    0.371    0.371 /root/HW-SW-FULL/variants/bm_nbody_opt.py:133(advance_opt)
+   200010    0.020    0.000    0.020    0.000 {built-in method math.sqrt}
+        6    0.001    0.000    0.001    0.000 {built-in method marshal.loads}
+    40/38    0.001    0.000    0.001    0.000 {built-in method builtins.__build_class__}
+        2    0.000    0.000    0.000    0.000 {built-in method _imp.create_dynamic}
+       66    0.000    0.000    0.000    0.000 {built-in method posix.stat}
+       26    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+     11/4    0.000    0.000    0.005    0.001 <frozen importlib._bootstrap>:664(_load_unlocked)
+     14/5    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_compile.py:87(_compile)
+      8/6    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:494(_parse)
+        6    0.000    0.000    0.000    0.000 {built-in method io.open_code}
+      128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:128(<listcomp>)
+      128    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:126(_path_join)
+        4    0.000    0.000    0.000    0.000 {built-in method __new__ of type object at 0x555555ad29a0}
+       24    0.000    0.000    0.000    0.000 /usr/lib/python3.10/posixpath.py:71(join)
+       11    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap>:921(_find_spec)
+        1    0.000    0.000    0.000    0.000 /usr/lib/python3.10/collections/__init__.py:328(namedtuple)
+        6    0.000    0.000    0.000    0.000 {method 'read' of '_io.BufferedReader' objects}
+        8    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1399(_get_spec)
+       70    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}
+       12    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap_external>:380(cache_from_source)
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.eval}
+     11/4    0.000    0.000    0.006    0.001 <frozen importlib._bootstrap>:1022(_find_and_load)
+        2    0.000    0.000    0.000    0.000 {built-in method _imp.exec_dynamic}
+        6    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:950(get_code)
+        5    0.000    0.000    0.005    0.001 /usr/lib/python3.10/argparse.py:1411(add_argument)
+        1    0.000    0.000    0.003    0.003 /usr/lib/python3.10/shutil.py:1(<module>)
+        3    0.000    0.000    0.000    0.000 /usr/lib/python3.10/gettext.py:542(find)
+       11    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:492(_init_module_attrs)
+        5    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+       16    0.000    0.000    0.001    0.000 /usr/lib/python3.10/re.py:288(_compile)
+      143    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:244(_verbose_message)
+       11    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:179(_get_module_lock)
+      218    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}
+       11    0.000    0.000    0.000    0.000 <frozen importlib._bootstrap>:100(acquire)
+      7/5    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:436(_parse_sub)
+        3    0.000    0.000    0.000    0.000 {built-in method _imp.exec_builtin}
+        3    0.000    0.000    0.000    0.000 {built-in method _imp.create_builtin}
+        3    0.000    0.000    0.000    0.000 /usr/lib/python3.10/argparse.py:1329(__init__)
+     16/7    0.000    0.000    0.000    0.000 /usr/lib/python3.10/sre_parse.py:175(getwidth)
+
+
+======================================================================
+TOP 25 BY CUMTIME (includes subcalls)
+======================================================================
+Sat Sep 19 15:59:00 2026    /root/HW-SW-FULL/results/nbody_optimized_20260919-155718/raw/cprofile_optimized.pstats
+
+         204157 function calls (204077 primitive calls) in 0.378 seconds
+
+   Ordered by: cumulative time
+   List reduced from 310 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      7/1    0.000    0.000    0.378    0.378 {built-in method builtins.exec}
+        1    0.000    0.000    0.378    0.378 /root/HW-SW-FULL/variants/bm_nbody_opt.py:1(<module>)
+        1    0.000    0.000    0.377    0.377 /root/HW-SW-FULL/variants/bm_nbody_opt.py:195(main)
+        1    0.000    0.000    0.371    0.371 /root/HW-SW-FULL/variants/bm_nbody_opt.py:175(benchmark)
+        1    0.351    0.351    0.371    0.371 /root/HW-SW-FULL/variants/bm_nbody_opt.py:133(advance_opt)
+   200010    0.020    0.000    0.020    0.000 {built-in method math.sqrt}
+     11/4    0.000    0.000    0.006    0.001 <frozen importlib._bootstrap>:1022(_find_and_load)
+     11/4    0.000    0.000    0.005    0.001 <frozen importlib._bootstrap>:987(_find_and_load_unlocked)
+        1    0.000    0.000    0.005    0.005 /usr/lib/python3.10/argparse.py:1713(__init__)
+     11/4    0.000    0.000    0.005    0.001 <frozen importlib._bootstrap>:664(_load_unlocked)
+      6/2    0.000    0.000    0.005    0.002 <frozen importlib._bootstrap_external>:877(exec_module)
+        5    0.000    0.000    0.005    0.001 /usr/lib/python3.10/argparse.py:1411(add_argument)
+        5    0.000    0.000    0.004    0.001 /usr/lib/python3.10/argparse.py:2565(_get_formatter)
+        5    0.000    0.000    0.004    0.001 /usr/lib/python3.10/argparse.py:170(__init__)
+     16/6    0.000    0.000    0.004    0.001 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+        1    0.000    0.000    0.003    0.003 /usr/lib/python3.10/shutil.py:1(<module>)
+        6    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:950(get_code)
+       11    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap>:921(_find_spec)
+        8    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1431(find_spec)
+        8    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1399(_get_spec)
+        1    0.000    0.000    0.001    0.001 /usr/lib/python3.10/bz2.py:1(<module>)
+       16    0.000    0.000    0.001    0.000 /usr/lib/python3.10/re.py:288(_compile)
+       26    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap_external>:1536(find_spec)
+    40/38    0.001    0.000    0.001    0.000 {built-in method builtins.__build_class__}
+       11    0.000    0.000    0.001    0.000 <frozen importlib._bootstrap>:564(module_from_spec)
+
+
+======================================================================
+CALLEES OF THE 15 HOTTEST FUNCTIONS
+======================================================================
+   Ordered by: internal time
+   List reduced from 310 to 15 due to restriction <15>
+
+Function                                                    called...
+                                                                ncalls  tottime  cumtime
+/root/HW-SW-FULL/variants/bm_nbody_opt.py:133(advance_opt)  ->       1    0.000    0.000  {built-in method builtins.len}
+                                                                200000    0.020    0.020  {built-in method math.sqrt}
+{built-in method math.sqrt}                                 -> 
+{built-in method marshal.loads}                             -> 
+{built-in method builtins.__build_class__}                  ->       1    0.000    0.000  /usr/lib/python3.10/_compression.py:9(BaseStream)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/_compression.py:33(DecompressReader)
+                                                                     4    0.000    0.000  /usr/lib/python3.10/abc.py:105(__new__)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:116(_AttributeHolder)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:163(HelpFormatter)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:213(_Section)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:685(RawDescriptionHelpFormatter)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:696(RawTextHelpFormatter)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:707(ArgumentDefaultsHelpFormatter)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:724(MetavarTypeHelpFormatter)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:759(ArgumentError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:779(ArgumentTypeError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:788(Action)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:882(BooleanOptionalAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:923(_StoreAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:958(_StoreConstAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:981(_StoreTrueAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:998(_StoreFalseAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1015(_AppendAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1053(_AppendConstAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1080(_CountAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1103(_HelpAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1122(_VersionAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1148(_SubParsersAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1150(_ChoicesPseudoAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1241(_ExtendAction)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1252(FileType)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1307(Namespace)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1327(_ActionsContainer)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1637(_ArgumentGroup)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1671(_MutuallyExclusiveGroup)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/argparse.py:1691(ArgumentParser)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/bz2.py:26(BZ2File)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/lzma.py:38(LZMAFile)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:59(Error)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:62(SameFileError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:65(SpecialFileError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:69(ExecError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:72(ReadError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:75(RegistryError)
+                                                                     1    0.000    0.000  /usr/lib/python3.10/shutil.py:79(_GiveupOnFastCopy)
+{built-in method _imp.create_dynamic}                       -> 
+{built-in method posix.stat}                                -> 
+<frozen importlib._bootstrap_external>:1536(find_spec)      ->     116    0.000    0.000  <frozen importlib._bootstrap>:244(_verbose_message)
+                                                                    26    0.000    0.000  <frozen importlib._bootstrap_external>:71(_relax_case)
+                                                                   116    0.000    0.000  <frozen importlib._bootstrap_external>:126(_path_join)
+                                                                    26    0.000    0.000  <frozen importlib._bootstrap_external>:140(_path_stat)
+                                                                     8    0.000    0.000  <frozen importlib._bootstrap_external>:159(_path_isfile)
+                                                                     8    0.000    0.000  <frozen importlib._bootstrap_external>:1531(_get_spec)
+                                                                     1    0.000    0.000  <frozen importlib._bootstrap_external>:1587(_fill_cache)
+                                                                    26    0.000    0.000  {method 'rpartition' of 'str' objects}
+<frozen importlib._bootstrap>:664(_load_unlocked)           ->      11    0.000    0.000  <frozen importlib._bootstrap>:244(_verbose_message)
+                                                                    11    0.000    0.001  <frozen importlib._bootstrap>:564(module_from_spec)
+                                                                     3    0.000    0.000  <frozen importlib._bootstrap>:778(exec_module)
+                                                                   6/2    0.000    0.005  <frozen importlib._bootstrap_external>:877(exec_module)
+                                                                     2    0.000    0.000  <frozen importlib._bootstrap_external>:1182(exec_module)
+                                                                    11    0.000    0.000  {built-in method builtins.hasattr}
+                                                                    11    0.000    0.000  {method 'pop' of 'dict' objects}
+/usr/lib/python3.10/sre_compile.py:87(_compile)             ->       2    0.000    0.000  /usr/lib/python3.10/sre_compile.py:81(_combine_flags)
+                                                                   9/6    0.000    0.000  /usr/lib/python3.10/sre_compile.py:87(_compile)
+                                                                     4    0.000    0.000  /usr/lib/python3.10/sre_compile.py:265(_compile_charset)
+                                                                     4    0.000    0.000  /usr/lib/python3.10/sre_compile.py:292(_optimize_charset)
+                                                                     5    0.000    0.000  /usr/lib/python3.10/sre_compile.py:447(_simple)
+                                                                    21    0.000    0.000  /usr/lib/python3.10/sre_parse.py:165(__getitem__)
+                                                                    26    0.000    0.000  {built-in method builtins.len}
+                                                                    69    0.000    0.000  {method 'append' of 'list' objects}
+                                                                     3    0.000    0.000  {method 'get' of 'dict' objects}
+/usr/lib/python3.10/sre_parse.py:494(_parse)                ->       2    0.000    0.000  /usr/lib/python3.10/sre_parse.py:85(opengroup)
+                                                                     2    0.000    0.000  /usr/lib/python3.10/sre_parse.py:97(closegroup)
+                                                                     8    0.000    0.000  /usr/lib/python3.10/sre_parse.py:112(__init__)
+                                                                    10    0.000    0.000  /usr/lib/python3.10/sre_parse.py:161(__len__)
+                                                                    37    0.000    0.000  /usr/lib/python3.10/sre_parse.py:165(__getitem__)
+                                                                     5    0.000    0.000  /usr/lib/python3.10/sre_parse.py:169(__setitem__)
+                                                                    17    0.000    0.000  /usr/lib/python3.10/sre_parse.py:173(append)
+                                                                     9    0.000    0.000  /usr/lib/python3.10/sre_parse.py:250(match)
+                                                                    22    0.000    0.000  /usr/lib/python3.10/sre_parse.py:255(get)
+                                                                     7    0.000    0.000  /usr/lib/python3.10/sre_parse.py:287(tell)
+                                                                     8    0.000    0.000  /usr/lib/python3.10/sre_parse.py:356(_escape)
+                                                                     2    0.000    0.000  /usr/lib/python3.10/sre_parse.py:436(_parse_sub)
+                                                                     8    0.000    0.000  {built-in method builtins.len}
+                                                                     3    0.000    0.000  {built-in method builtins.ord}
+{built-in method io.open_code}                              -> 
+<frozen importlib._bootstrap_external>:128(<listcomp>)      ->     268    0.000    0.000  {method 'rstrip' of 'str' objects}
+<frozen importlib._bootstrap_external>:126(_path_join)      ->     128    0.000    0.000  <frozen importlib._bootstrap_external>:128(<listcomp>)
+                                                                   128    0.000    0.000  {method 'join' of 'str' objects}
+{built-in method __new__ of type object at 0x555555ad29a0}  -> 
+/usr/lib/python3.10/posixpath.py:71(join)                   ->      24    0.000    0.000  /usr/lib/python3.10/posixpath.py:41(_get_sep)
+                                                                    24    0.000    0.000  {built-in method posix.fspath}
+                                                                    72    0.000    0.000  {method 'endswith' of 'str' objects}
+                                                                    72    0.000    0.000  {method 'startswith' of 'str' objects}
+
+

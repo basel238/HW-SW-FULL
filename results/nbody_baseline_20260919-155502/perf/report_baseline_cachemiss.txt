@@ -1,0 +1,70 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 9  of event 'cache-misses'
+# Event count (approx.): 90000
+#
+# Overhead  Command      Shared Object     Symbol                              
+# ........  ...........  ................  ....................................
+#
+    11.11%  python3-dbg  libc.so.6         [.] pthread_cond_signal@@GLIBC_2.3.2
+            |
+            ---pthread_cond_signal@@GLIBC_2.3.2
+               0
+
+    11.11%  python3-dbg  python3.10d       [.] PyDict_Copy
+            |
+            ---PyDict_Copy
+               0x9a97c0
+
+    11.11%  python3-dbg  python3.10d       [.] _PyMem_DebugCheckAddress
+            |
+            ---_PyMem_DebugCheckAddress
+               0x4677615267756265
+
+    11.11%  python3-dbg  python3.10d       [.] _PyObject_IsFreed
+            |
+            ---_PyObject_IsFreed
+               0x9a7b20
+
+    11.11%  python3-dbg  python3.10d       [.] assemble.lto_priv.0
+            |
+            ---assemble.lto_priv.0
+               0xabc7c0
+
+    11.11%  python3-dbg  python3.10d       [.] dict_traverse.lto_priv.0
+            |
+            ---dict_traverse.lto_priv.0
+
+    11.11%  python3-dbg  python3.10d       [.] list_dealloc.lto_priv.0
+            |
+            ---list_dealloc.lto_priv.0
+               0x9aaf60
+
+    11.11%  python3-dbg  python3.10d       [.] tupledealloc.lto_priv.0
+            |
+            ---tupledealloc.lto_priv.0
+               0x9a7b20
+
+    11.11%  python3-dbg  [unknown]         [k] 0xffffffffac586f27
+            |
+            ---0xffffffffac586f27
+               0xffffffffac2583ea
+               0xffffffffac25866d
+               0xffffffffac3ad3e6
+               0xffffffffac2ecda8
+               0xffffffffac2eda01
+               0xffffffffac2ef0a2
+               0xffffffffac2ef134
+               0xffffffffac003942
+               0xffffffffac95004e
+               0xffffffffaca00124
+               read
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

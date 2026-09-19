@@ -332,8 +332,18 @@ run_perf_record() {
   local cg=(--call-graph "$CALLGRAPH")
   [[ "$CALLGRAPH" == "dwarf" ]] && cg=(--call-graph "dwarf,$DWARF_STACK_BYTES")
 
-  log "perf record -F $SAMPLE_FREQ --call-graph $CALLGRAPH (loops=$rloops, $PY_DBG)"
-  if ! perf record -F "$SAMPLE_FREQ" ${cg[@]+"${cg[@]}"} -m "$PERF_MMAP_PAGES" \
+  # On a partially-emulated KVM PMU, frequency mode (-F) with the auto-chosen
+  # precise event can capture ZERO samples while perf still exits 0. Fixed
+  # period mode (-c) is robust. See PERF_RECORD_MODE in config/bench.env.
+  local samp=() sev=()
+  if [[ "${PERF_RECORD_MODE:-freq}" == "period" ]]; then
+    samp=(-c "${SAMPLE_PERIOD:-2000000}")
+    [[ -n "${PERF_RECORD_EVENT:-}" ]] && sev=(-e "$PERF_RECORD_EVENT")
+  else
+    samp=(-F "$SAMPLE_FREQ")
+  fi
+  log "perf record ${sev[*]-} ${samp[*]} --call-graph $CALLGRAPH (loops=$rloops, $PY_DBG)"
+  if ! perf record ${sev[@]+"${sev[@]}"} ${samp[@]+"${samp[@]}"} ${cg[@]+"${cg[@]}"} -m "$PERF_MMAP_PAGES" \
         --output="$data" -- ${PIN[@]+"${PIN[@]}"} "$PY_DBG" ${WL[@]+"${WL[@]}"} \
         > "$RUN_DIR/logs/${tag}_record.log" 2>&1; then
     warn "perf record failed:"; tail -20 "$RUN_DIR/logs/${tag}_record.log" >&2; return 0
@@ -348,8 +358,25 @@ run_perf_record() {
     warn "LOST SAMPLES detected -> flame graph may be skewed."
     warn "raise PERF_MMAP_PAGES (now $PERF_MMAP_PAGES) or lower SAMPLE_FREQ."
   fi
-  local n; n="$(perf report -i "$data" --stdio 2>/dev/null | grep -oE '^# Samples: [0-9.KM]+' | head -1 || true)"
-  ok "$(du -h "$data" 2>/dev/null | cut -f1) perf.data  ${n:-}"
+  # A zero-sample perf.data is the worst failure mode here: perf exits 0 and
+  # every downstream artifact is silently empty. Detect it and retry on the
+  # software event, which does not depend on the hardware PMU.
+  local nsamp
+  nsamp="$(perf report -i "$data" --stdio 2>/dev/null | grep -oE '^# Samples: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
+  [[ -n "$nsamp" ]] || nsamp=0
+  if (( nsamp == 0 )); then
+    err "perf record captured ZERO samples -> no flame graph possible."
+    warn "retrying with the cpu-clock SOFTWARE event (PMU-independent)..."
+    if perf record -e cpu-clock -c 1000000 ${cg[@]+"${cg[@]}"} -m "$PERF_MMAP_PAGES" \
+         --output="$data" -- ${PIN[@]+"${PIN[@]}"} "$PY_DBG" ${WL[@]+"${WL[@]}"} \
+         > "$RUN_DIR/logs/${tag}_record_retry.log" 2>&1; then
+      nsamp="$(perf report -i "$data" --stdio 2>/dev/null | grep -oE '^# Samples: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
+      [[ -n "$nsamp" ]] || nsamp=0
+    fi
+    (( nsamp == 0 )) && { err "still zero samples; skipping flame graph."; return 0; }
+    ok "fallback succeeded: $nsamp samples via cpu-clock"
+  fi
+  ok "$(du -h "$data" 2>/dev/null | cut -f1) perf.data, $nsamp samples"
 
   make_reports "$tag" "$data"
   make_flamegraph "$tag" "$data"

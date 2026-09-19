@@ -1,0 +1,305 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 3K of event 'cycles'
+# Event count (approx.): 6720000000
+#
+# Children      Self  Shared Object   
+# ........  ........  ................
+#
+    97.95%    97.80%  python3.10d     
+            |          
+            |--26.10%--0x9ad3c0
+            |          |          
+            |          |--4.79%--binary_op1
+            |          |          
+            |          |--3.21%--float_mul.lto_priv.0
+            |          |          
+            |          |--2.29%--list_ass_item.lto_priv.0
+            |          |          
+            |          |--2.08%--float_sub.lto_priv.0
+            |          |          
+            |          |--1.85%--_Py_CheckSlotResult
+            |          |          
+            |          |--1.82%--float_add.lto_priv.0
+            |          |          
+            |          |--1.73%--list_ass_subscript.lto_priv.0
+            |          |          
+            |          |--1.40%--binary_iop1
+            |          |          
+            |          |--1.40%--float_dealloc.lto_priv.0
+            |          |          
+            |          |--0.83%--PyObject_SetItem
+            |          |          
+            |          |--0.74%--PyNumber_AsSsize_t
+            |          |          
+            |          |--0.71%--PyObject_GetItem
+            |          |          
+            |          |--0.60%--_PyNumber_Index
+            |          |          
+            |          |--0.57%--PyLong_AsSsize_t
+            |          |          
+            |           --0.51%--PyNumber_Multiply
+            |          
+            |--5.80%--0x9af720
+            |          |          
+            |          |--1.70%--_PyNumber_Index
+            |          |          
+            |          |--1.28%--list_subscript.lto_priv.0
+            |          |          
+            |          |--1.19%--PyNumber_AsSsize_t
+            |          |          
+            |          |--0.83%--PyObject_GetItem
+            |          |          
+            |           --0.80%--PyLong_AsSsize_t
+            |          
+            |--3.07%--PyFloat_FromDouble
+            |          
+            |--2.05%--list_item.lto_priv.0
+            |          
+            |--1.25%--_Py_NewReference
+            |          
+            |--1.25%--0x3c000300370014
+            |          |          
+            |           --0.92%--_PyEval_EvalFrameDefault
+            |          
+            |--1.16%--0x464107c007c107d
+            |          |          
+            |           --0.65%--_PyEval_EvalFrameDefault
+            |          
+            |--1.10%--PyNumber_AsSsize_t
+            |          
+            |--1.10%--0x300370014127c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--1.01%--0x3c000300380014
+            |          |          
+            |           --0.57%--_PyEval_EvalFrameDefault
+            |          
+            |--0.98%--0x77d035c0019057c
+            |          |          
+            |           --0.65%--listiter_next.lto_priv.0
+            |          
+            |--0.92%--0x300380014137c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.89%--0x1640a7c00190164
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.86%--0x127c0e7c00190005
+            |          |          
+            |           --0.65%--_PyEval_EvalFrameDefault
+            |          
+            |--0.83%--0x18001903640a7c
+            |          |          
+            |           --0.65%--_PyEval_EvalFrameDefault
+            |          
+            |--0.77%--0x127c0f7c00190005
+            |          
+            |--0.77%--0xa7d035c0019067c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.74%--list_subscript.lto_priv.0
+            |          
+            |--0.74%--0x117c097c117d0014
+            |          |          
+            |           --0.54%--_PyEval_EvalFrameDefault
+            |          
+            |--0.71%--0x127c0d7c00190005
+            |          
+            |--0.71%--0x97c117d00140013
+            |          
+            |--0.71%--0x1700140e7c0e7c
+            |          |          
+            |           --0.51%--_PyEval_EvalFrameDefault
+            |          
+            |--0.68%--0x157c007c00190005
+            |          
+            |--0.68%--0x137c0e7c00190005
+            |          
+            |--0.68%--0xe7d001800190264
+            |          
+            |--0.65%--0x147d035c295d0044
+            |          |          
+            |           --0.51%--_PyEval_EvalFrameDefault
+            |          
+            |--0.65%--0x137c0f7c00190005
+            |          
+            |--0.65%--0xa7c00190364077c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.60%--0x107d001700140f7c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.60%--0xd7c001900050164
+            |          |          
+            |           --0.57%--_PyEval_EvalFrameDefault
+            |          
+            |--0.60%--0x18001902640a7c
+            |          
+            |--0.57%--0xe7c00140d7c0d7c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.57%--0xc7c127d0014117c
+            |          
+            |--0.54%--0xf7c001700140e7c
+            |          
+            |--0.54%--0xe7c001900050264
+            |          
+            |--0.54%--0xa7c00190264077c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.51%--0x167d157d147d035c
+            |          
+             --0.51%--0x140f7c0f7c0017
+                       _PyEval_EvalFrameDefault
+
+    87.86%     0.36%  [unknown]       
+            |          
+            |--26.13%--0x9ad3c0
+            |          |          
+            |          |--4.79%--binary_op1
+            |          |          
+            |          |--3.21%--float_mul.lto_priv.0
+            |          |          
+            |          |--2.29%--list_ass_item.lto_priv.0
+            |          |          
+            |          |--2.08%--float_sub.lto_priv.0
+            |          |          
+            |          |--1.88%--_Py_CheckSlotResult
+            |          |          
+            |          |--1.82%--float_add.lto_priv.0
+            |          |          
+            |          |--1.73%--list_ass_subscript.lto_priv.0
+            |          |          
+            |          |--1.40%--binary_iop1
+            |          |          
+            |          |--1.40%--float_dealloc.lto_priv.0
+            |          |          
+            |          |--0.83%--PyObject_SetItem
+            |          |          
+            |          |--0.74%--PyNumber_AsSsize_t
+            |          |          
+            |          |--0.71%--PyObject_GetItem
+            |          |          
+            |          |--0.60%--_PyNumber_Index
+            |          |          
+            |          |--0.57%--PyLong_AsSsize_t
+            |          |          
+            |           --0.51%--PyNumber_Multiply
+            |          
+            |--5.83%--0x9af720
+            |          |          
+            |          |--1.70%--_PyNumber_Index
+            |          |          
+            |          |--1.28%--list_subscript.lto_priv.0
+            |          |          
+            |          |--1.19%--PyNumber_AsSsize_t
+            |          |          
+            |          |--0.83%--PyObject_GetItem
+            |          |          
+            |           --0.80%--PyLong_AsSsize_t
+            |          
+            |--1.25%--0x3c000300370014
+            |          |          
+            |           --0.92%--_PyEval_EvalFrameDefault
+            |          
+            |--1.16%--0x464107c007c107d
+            |          |          
+            |           --0.65%--_PyEval_EvalFrameDefault
+            |          
+            |--1.10%--0x300370014127c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--1.01%--0x3c000300380014
+            |          |          
+            |           --0.57%--_PyEval_EvalFrameDefault
+            |          
+            |--0.98%--0x77d035c0019057c
+            |          |          
+            |           --0.65%--listiter_next.lto_priv.0
+            |          
+            |--0.92%--0x300380014137c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.89%--0x1640a7c00190164
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.86%--0x127c0e7c00190005
+            |          |          
+            |           --0.65%--_PyEval_EvalFrameDefault
+            |          
+            |--0.83%--0x18001903640a7c
+            |          |          
+            |           --0.65%--_PyEval_EvalFrameDefault
+            |          
+            |--0.77%--0x127c0f7c00190005
+            |          
+            |--0.77%--0xa7d035c0019067c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.74%--0x117c097c117d0014
+            |          |          
+            |           --0.54%--_PyEval_EvalFrameDefault
+            |          
+            |--0.71%--0x127c0d7c00190005
+            |          
+            |--0.71%--0x97c117d00140013
+            |          
+            |--0.71%--0x1700140e7c0e7c
+            |          |          
+            |           --0.51%--_PyEval_EvalFrameDefault
+            |          
+            |--0.68%--0x157c007c00190005
+            |          
+            |--0.68%--0x137c0e7c00190005
+            |          
+            |--0.68%--0xe7d001800190264
+            |          
+            |--0.65%--0x147d035c295d0044
+            |          |          
+            |           --0.51%--_PyEval_EvalFrameDefault
+            |          
+            |--0.65%--0x137c0f7c00190005
+            |          
+            |--0.65%--0xa7c00190364077c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.60%--0x107d001700140f7c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.60%--0xd7c001900050164
+            |          |          
+            |           --0.57%--_PyEval_EvalFrameDefault
+            |          
+            |--0.60%--0x18001902640a7c
+            |          
+            |--0.57%--0xe7c00140d7c0d7c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.57%--0xc7c127d0014117c
+            |          
+            |--0.54%--0xf7c001700140e7c
+            |          
+            |--0.54%--0xe7c001900050264
+            |          
+            |--0.54%--0xa7c00190264077c
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.51%--0x167d157d147d035c
+            |          
+             --0.51%--0x140f7c0f7c0017
+                       _PyEval_EvalFrameDefault
+
+     1.34%     1.34%  libm.so.6       
+            |          
+             --1.25%--__ieee754_pow_fma
+
+     0.71%     0.51%  libc.so.6       
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

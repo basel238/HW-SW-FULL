@@ -1,0 +1,20 @@
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.217569 s  263.598 ms/frame
+primary_rays=160000  37.94 kray/s
+RESULT total_sec=4.217569 loops=16 ms_per_frame=263.5980 krays_per_sec=37.9366
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.211249 s  263.203 ms/frame
+primary_rays=160000  37.99 kray/s
+RESULT total_sec=4.211249 loops=16 ms_per_frame=263.2030 krays_per_sec=37.9935
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.235929 s  264.746 ms/frame
+primary_rays=160000  37.77 kray/s
+RESULT total_sec=4.235929 loops=16 ms_per_frame=264.7455 krays_per_sec=37.7721
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.225034 s  264.065 ms/frame
+primary_rays=160000  37.87 kray/s
+RESULT total_sec=4.225034 loops=16 ms_per_frame=264.0646 krays_per_sec=37.8695
+resolution=100x100 loops=16 max_depth=3
+elapsed=4.222316 s  263.895 ms/frame
+primary_rays=160000  37.89 kray/s
+RESULT total_sec=4.222316 loops=16 ms_per_frame=263.8948 krays_per_sec=37.8939

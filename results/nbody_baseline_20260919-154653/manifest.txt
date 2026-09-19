@@ -1,0 +1,108 @@
+==============================================================
+ run tag    : nbody_baseline_20260919-154653
+ benchmark  : nbody        variant: baseline
+ date (UTC) : 2026-09-19T15:46:53Z
+ git commit : ff496e2
+ git dirty  : 10 file(s)
+==============================================================
+
+--- host ---
+uname      : Linux ubuntu 5.15.0-1106-kvm #111-Ubuntu SMP Tue Aug 11 15:19:54 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+distro     : Ubuntu 22.04.5 LTS
+nproc      : 1
+virt       : kvm
+hypervisor : yes
+
+--- cpu ---
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           46 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  1
+On-line CPU(s) list:                     0
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz
+CPU family:                              6
+Model:                                   63
+Thread(s) per core:                      1
+Core(s) per socket:                      1
+Socket(s):                               1
+Stepping:                                2
+BogoMIPS:                                4799.97
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm cpuid_fault invpcid_single pti ssbd ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat umip md_clear flush_l1d arch_capabilities
+Virtualization:                          VT-x
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               32 KiB (1 instance)
+L1i cache:                               32 KiB (1 instance)
+L2 cache:                                4 MiB (1 instance)
+
+--- memory ---
+               total        used        free      shared  buff/cache   available
+Mem:           3.8Gi       140Mi       1.9Gi       0.0Ki       1.8Gi       3.7Gi
+Swap:             0B          0B          0B
+
+--- toolchain ---
+perf       : perf version 5.15.209
+PY_REL     : python3 -> Python 3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0] 
+PY_DBG     : python3-dbg -> Python 3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0] 
+py-spy     : py-spy 0.4.2
+FlameGraph : /root/FlameGraph present
+
+--- kernel knobs affecting measurement ---
+kernel.perf_event_paranoid = -1
+kernel.kptr_restrict = 0
+kernel.randomize_va_space = 0
+kernel.nmi_watchdog = ?
+governor   : n/a (virtualized)
+THP        : n/a
+PMU        : 1
+
+--- measurement config ---
+SAMPLE_FREQ=999  CALLGRAPH=fp  TARGET_SEC=3.0
+CLEAN_REPS=11  REPS=5  LOOPS=auto
+PIN_CPU=0  USE_TASKSET=1
+PYTHONHASHSEED=0  DISABLE_GC=1
+
+TIMING POLICY: quote only phase2_clean (results/timing/clean_*.txt).
+Files named *DO_NOT_QUOTE* come from profiled runs and are
+inflated by profiler overhead; they exist only for cross-checking.
+
+--- artifacts ---
+flame/baseline.folded
+flame/baseline.svg
+flame/baseline_icicle.svg
+flame/baseline_python.folded
+flame/baseline_python.svg
+flame/baseline_top30_stacks.txt
+logs/baseline_cache.log
+logs/baseline_record.log
+logs/cprofile.log
+logs/pyperformance_baseline.log
+logs/verify.log
+manifest.txt
+perf/baseline.data
+perf/baseline_cachemiss.data
+perf/baseline_script.txt
+perf/events_used.txt
+perf/report_baseline.txt
+perf/report_baseline_cachemiss.txt
+perf/report_baseline_callers.txt
+perf/report_baseline_dso.txt
+perf/report_baseline_self.txt
+perf/report_baseline_symbols.csv
+perf/stat_baseline.csv
+perf/stat_baseline.topdown.txt
+perf/stat_baseline.txt
+perf/stat_baseline.workload.log
+raw/cprofile_baseline.pstats
+raw/cprofile_baseline.txt
+raw/pyperf_baseline.json
+raw/pyperf_baseline_dump.txt
+raw/pyperf_baseline_hist.txt
+raw/pyperf_baseline_stats.txt
+timing/baseline_DO_NOT_QUOTE_timing.txt
+timing/clean_baseline.csv
+timing/clean_baseline.txt
+timing/clean_baseline_summary.txt
+timing/loops.txt

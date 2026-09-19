@@ -1,12 +1,10 @@
-[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
-[31m[fail][0m aborted at /root/HW-SW-FULL/tools/gen_report.sh:83 (exit 1)
 ===============================================================================
  REPORT — raytrace
  HW/SW Co-design (00460882) — Benchmark Optimization, Analysis,
                               and Hardware Acceleration
 ===============================================================================
- Generated : 2026-09-19T15:03:17Z
- Commit    : 327c9dc
+ Generated : 2026-09-19T15:59:01Z
+ Commit    : ff496e2
  Host      : Linux 5.15.0-1106-kvm x86_64 | Ubuntu 22.04.5 LTS
  Generator : tools/gen_report.sh (measured sections are auto-filled; analysis
              sections marked [TODO] require your own writing)
@@ -57,22 +55,22 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   Noise control: single-CPU pinning via taskset, PYTHONHASHSEED fixed,
   cyclic GC disabled during the timed region, ASLR disabled, CPU governor set
   to performance where the platform exposes it. Reported statistic is the
-  MEDIAN over 7 independent processes, with relative standard
+  MEDIAN over 11 independent processes, with relative standard
   deviation reported so the reader can judge whether the result is solid.
 
   Sampling frequency is 999 Hz (deliberately not a round 1000 Hz, to
   avoid lock-stepping with periodic kernel timers and with the benchmark's own
-  loop boundaries). Call graphs use dwarf unwinding because stock CPython
+  loop boundaries). Call graphs use fp unwinding because stock CPython
   is compiled with -fomit-frame-pointer, so frame-pointer unwinding yields
   truncated stacks.
 
 2.2 Environment
   ==============================================================
-   run tag    : raytrace_baseline_20260919-145318
+   run tag    : raytrace_baseline_20260919-155034
    benchmark  : raytrace        variant: baseline
-   date (UTC) : 2026-09-19T14:53:19Z
-   git commit : 327c9dc
-   git dirty  : 4 file(s)
+   date (UTC) : 2026-09-19T15:50:34Z
+   git commit : ff496e2
+   git dirty  : 11 file(s)
   ==============================================================
   
   --- host ---
@@ -108,7 +106,7 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   
   --- memory ---
                  total        used        free      shared  buff/cache   available
-  Mem:           3.8Gi       134Mi       2.1Gi       0.0Ki       1.7Gi       3.7Gi
+  Mem:           3.8Gi       141Mi       1.9Gi       0.0Ki       1.8Gi       3.7Gi
   Swap:             0B          0B          0B
   
   --- toolchain ---
@@ -129,69 +127,137 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   
 
 2.3 Hardware counters (baseline)
-  # started on Sat Sep 19 14:53:57 2026
+  # started on Sat Sep 19 15:51:29 2026
   
   
    Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_raytrace.py --mode raw --loops 16 --no-gc' (5 runs):
   
-             4344.38 msec task-clock                #    1.009 CPUs utilized            ( +-  0.48% )
-                2029      page-faults               #  472.377 /sec                   
-                2029      minor-faults              #  472.377 /sec                   
+             4264.61 msec task-clock                #    0.999 CPUs utilized            ( +-  0.09% )
+                2029      page-faults               #  476.356 /sec                   
+                2029      minor-faults              #  476.356 /sec                   
                    0      major-faults              #    0.000 /sec                   
-                  36      context-switches          #    8.381 /sec                     ( +- 29.90% )
+                  40      context-switches          #    9.391 /sec                     ( +-  8.46% )
                    0      cpu-migrations            #    0.000 /sec                   
-         10118812257      cycles                    #    2.356 GHz                      ( +-  0.48% )  (49.86%)
-         27781886576      instructions              #    2.78  insn per cycle           ( +-  0.02% )  (59.89%)
-          3399077053      branches                  #  791.349 M/sec                    ( +-  0.07% )  (59.92%)
-            10704930      branch-misses             #    0.31% of all branches          ( +-  0.41% )  (59.92%)
-             4865041      cache-references          #    1.133 M/sec                    ( +-  6.70% )  (60.02%)
-               95153      cache-misses              #    1.823 % of all cache refs      ( +- 12.03% )  (60.11%)
-          9033670623      L1-dcache-loads           #    2.103 G/sec                    ( +-  0.06% )  (40.08%)
-           182736986      L1-dcache-load-misses     #    2.02% of all L1-dcache accesses  ( +-  0.35% )  (40.08%)
+          9928442448      cycles                    #    2.331 GHz                      ( +-  0.07% )  (49.87%)
+         27764577078      instructions              #    2.80  insn per cycle           ( +-  0.04% )  (59.89%)
+          3403161759      branches                  #  798.973 M/sec                    ( +-  0.10% )  (59.89%)
+            10470474      branch-misses             #    0.31% of all branches          ( +-  0.53% )  (59.96%)
+             5857727      cache-references          #    1.375 M/sec                    ( +-  3.40% )  (60.05%)
+               62217      cache-misses              #    1.062 % of all cache refs      ( +- 18.23% )  (60.14%)
+          9037118239      L1-dcache-loads           #    2.122 G/sec                    ( +-  0.04% )  (40.11%)
+           181487044      L1-dcache-load-misses     #    2.01% of all L1-dcache accesses  ( +-  0.30% )  (40.04%)
      <not supported>      LLC-loads                                                   
      <not supported>      LLC-load-misses                                             
-          4492139315      dTLB-loads                #    1.046 G/sec                    ( +-  0.07% )  (39.98%)
-             1618743      dTLB-load-misses          #    0.04% of all dTLB cache accesses  ( +-  1.64% )  (39.89%)
+          4478678631      dTLB-loads                #    1.051 G/sec                    ( +-  0.14% )  (39.95%)
+             1418969      dTLB-load-misses          #    0.03% of all dTLB cache accesses  ( +-  2.04% )  (39.86%)
   
-              4.3046 +- 0.0226 seconds time elapsed  ( +-  0.52% )
+             4.26690 +- 0.00398 seconds time elapsed  ( +-  0.09% )
   
 
 2.4 perf report — hottest symbols, self time (baseline)
-
+      31.97%  python3-dbg  python3.10d           [.] _PyEval_EvalFrameDefault
+              |
+              ---_PyEval_EvalFrameDefault
+                 |          
+                 |--1.59%--0xfdfdfdfdfd000053
+                 |          
+                 |--1.59%--0
+                 |          
+                 |--0.92%--0xfdfdfd
+                 |          
+                 |--0.89%--0xfdfdfdfdfdfdfd
+                 |          
+                 |--0.84%--0x17c026a007c0018
+                 |          
+                 |--0.77%--0xfdfdfdfdfdfdfd00
+                 |          
+                 |--0.77%--0x26a017c026a007c
+                 |          
+                 |--0.77%--0x14016a017c016a
+                 |          
+                 |--0.72%--0xfd
+                 |          
+                 |--0.67%--0xfdfdfd0000530017
+                 |          
+                  --0.67%--0x17c026a007c0017
+  
+       3.55%  python3-dbg  python3.10d           [.] frame_dealloc.lto_priv.0
+              |
+              ---frame_dealloc.lto_priv.0
+                 |          
+                 |--2.95%--0x9a0ea0
+                 |          
+                  --0.60%--0
+  
+       3.32%  python3-dbg  python3.10d           [.] _PyEval_MakeFrameVector
 
 2.5 Time by shared object (baseline)
-
+      98.21%    97.87%  python3.10d         
+              |          
+              |--10.47%--0x9ad3c0
+              |          |          
+              |          |--2.16%--binary_op1
+              |          |          
+              |          |--0.94%--PyObject_SetAttr
+              |          |          
+              |          |--0.87%--float_mul.lto_priv.0
+              |          |          
+              |          |--0.67%--float_sub.lto_priv.0
+              |          |          
+              |          |--0.62%--_Py_CheckSlotResult
+              |          |          
+              |          |--0.55%--float_add.lto_priv.0
+              |          |          
+              |           --0.52%--PyMember_SetOne
+              |          
 
 2.6 Hottest call stacks (baseline, folded)
-    [no folded stacks]
+  python3-dbg;[unknown];_PyEval_EvalFrameDefault 2578000000
+  python3-dbg;[unknown];frame_dealloc.lto_priv.0 286000000
+  python3-dbg;[unknown];[unknown];call_function.lto_priv.0 212000000
+  python3-dbg;[unknown];binary_op1 202000000
+  python3-dbg;_PyEval_MakeFrameVector 196000000
+  python3-dbg;[unknown];_PyType_Lookup 174000000
+  python3-dbg;[unknown];PyTuple_GetItem 154000000
+  python3-dbg;[unknown];_PyObject_GenericSetAttrWithDict 122000000
+  python3-dbg;PyFloat_FromDouble 98000000
+  python3-dbg;_PyFunction_Vectorcall 90000000
+  python3-dbg;[unknown];float_dealloc.lto_priv.0 84000000
+  python3-dbg;[unknown];_PyMem_DebugCheckAddress 82000000
+  python3-dbg;[unknown];PyObject_SetAttr 82000000
+  python3-dbg;_PyFrame_New_NoTrack 80000000
+  python3-dbg;[unknown];lookdict_unicode_nodummy 72000000
+  python3-dbg;[unknown];_PyEval_MakeFrameVector 72000000
+  python3-dbg;[unknown];read_size_t 70000000
+  python3-dbg;[unknown];float_mul.lto_priv.0 70000000
 
 2.7 Exact call counts (cProfile, baseline)
   ======================================================================
   TOP 40 BY TOTTIME (self time, excludes subcalls)
   ======================================================================
-  Sat Sep 19 14:55:23 2026    /root/HW-SW-FULL/results/raytrace_baseline_20260919-145318/raw/cprofile_baseline.pstats
+  Sat Sep 19 15:52:25 2026    /root/HW-SW-FULL/results/raytrace_baseline_20260919-155034/raw/cprofile_baseline.pstats
   
-           1020243 function calls (1013609 primitive calls) in 0.685 seconds
+           1020243 function calls (1013609 primitive calls) in 0.689 seconds
   
      Ordered by: internal time
      List reduced from 345 to 40 due to restriction <40>
   
      ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-      92796    0.113    0.000    0.273    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)
+      92796    0.114    0.000    0.273    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:94(intersect)
      223295    0.084    0.000    0.084    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:65(dot)
-     229592    0.072    0.000    0.072    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
-  16543/10000    0.070    0.000    0.574    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
+     229592    0.073    0.000    0.073    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:53(__init__)
+  16543/10000    0.071    0.000    0.576    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:163(trace)
      107300    0.069    0.000    0.103    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:59(__sub__)
-      23199    0.061    0.000    0.351    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)
-          1    0.048    0.048    0.674    0.674 /root/HW-SW-FULL/bench/bm_raytrace.py:194(render)
-      46140    0.030    0.000    0.044    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
-      24504    0.025    0.000    0.065    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
+      23199    0.062    0.000    0.353    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:151(nearest_hit)
+          1    0.048    0.048    0.677    0.677 /root/HW-SW-FULL/bench/bm_raytrace.py:194(render)
+      46140    0.030    0.000    0.045    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:62(__mul__)
+      24504    0.026    0.000    0.065    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:73(normalize)
       26398    0.018    0.000    0.026    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:56(__add__)
-      24504    0.017    0.000    0.031    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)
+      24504    0.017    0.000    0.032    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:70(magnitude)
       23199    0.014    0.000    0.018    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:122(intersect)
       30024    0.009    0.000    0.009    0.000 {built-in method builtins.max}
       30044    0.009    0.000    0.009    0.000 {built-in method builtins.min}
-       6543    0.007    0.000    0.022    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)
+       6543    0.007    0.000    0.023    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:79(reflect)
        5351    0.006    0.000    0.008    0.000 /root/HW-SW-FULL/bench/bm_raytrace.py:131(color_at)
       28863    0.005    0.000    0.005    0.000 {built-in method math.sqrt}
       30220    0.004    0.000    0.004    0.000 {method 'append' of 'list' objects}
@@ -267,23 +333,23 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   
   metric                baseline       optimized           delta
   --------------------------------------------------------------------------
-  samples                      7               7                
-  min                 4.118042 s      3.071350 s     -1.046692 s
-  median              4.126748 s      3.084778 s     -1.041970 s
-  mean                4.126174 s      3.084453 s     -1.041721 s
-  max                 4.133301 s      3.110331 s     -1.022970 s
-  stdev               0.004984 s      0.013200 s     +0.008215 s
-  rel stdev                0.12%           0.43%                
+  samples                     11              11                
+  min                 4.116848 s      3.076778 s     -1.040070 s
+  median              4.122267 s      3.083986 s     -1.038281 s
+  mean                4.129439 s      3.085496 s     -1.043944 s
+  max                 4.185277 s      3.096205 s     -1.089072 s
+  stdev               0.019479 s      0.006602 s     -0.012877 s
+  rel stdev                0.47%           0.21%                
   
   ==========================================================================
-    SPEEDUP     : 1.3378x
-    IMPROVEMENT : 25.25 %   (time reduction)
+    SPEEDUP     : 1.3367x
+    IMPROVEMENT : 25.19 %   (time reduction)
     PROJECT BAR : 7.00 %
     VERDICT     : PASS
   ==========================================================================
   
-  Signal check: improvement (25.25%) exceeds 2x noise (0.43%). OK.
-  Min-vs-min speedup (least-noise estimate): 1.3408x (25.42% improvement)
+  Signal check: improvement (25.19%) exceeds 2x noise (0.47%). OK.
+  Min-vs-min speedup (least-noise estimate): 1.3380x (25.26% improvement)
 
 4.1 Counter comparison
   ===============================================================
@@ -297,54 +363,54 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   --------------------------------------------------------------
    baseline
   --------------------------------------------------------------
-  # started on Sat Sep 19 14:53:57 2026
+  # started on Sat Sep 19 15:51:29 2026
    Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/bench/bm_raytrace.py --mode raw --loops 16 --no-gc' (5 runs):
-             4344.38 msec task-clock                #    1.009 CPUs utilized            ( +-  0.48% )
-                2029      page-faults               #  472.377 /sec                   
-                2029      minor-faults              #  472.377 /sec                   
+             4264.61 msec task-clock                #    0.999 CPUs utilized            ( +-  0.09% )
+                2029      page-faults               #  476.356 /sec                   
+                2029      minor-faults              #  476.356 /sec                   
                    0      major-faults              #    0.000 /sec                   
-                  36      context-switches          #    8.381 /sec                     ( +- 29.90% )
+                  40      context-switches          #    9.391 /sec                     ( +-  8.46% )
                    0      cpu-migrations            #    0.000 /sec                   
-         10118812257      cycles                    #    2.356 GHz                      ( +-  0.48% )  (49.86%)
-         27781886576      instructions              #    2.78  insn per cycle           ( +-  0.02% )  (59.89%)
-          3399077053      branches                  #  791.349 M/sec                    ( +-  0.07% )  (59.92%)
-            10704930      branch-misses             #    0.31% of all branches          ( +-  0.41% )  (59.92%)
-             4865041      cache-references          #    1.133 M/sec                    ( +-  6.70% )  (60.02%)
-               95153      cache-misses              #    1.823 % of all cache refs      ( +- 12.03% )  (60.11%)
-          9033670623      L1-dcache-loads           #    2.103 G/sec                    ( +-  0.06% )  (40.08%)
-           182736986      L1-dcache-load-misses     #    2.02% of all L1-dcache accesses  ( +-  0.35% )  (40.08%)
-          4492139315      dTLB-loads                #    1.046 G/sec                    ( +-  0.07% )  (39.98%)
-             1618743      dTLB-load-misses          #    0.04% of all dTLB cache accesses  ( +-  1.64% )  (39.89%)
-              4.3046 +- 0.0226 seconds time elapsed  ( +-  0.52% )
+          9928442448      cycles                    #    2.331 GHz                      ( +-  0.07% )  (49.87%)
+         27764577078      instructions              #    2.80  insn per cycle           ( +-  0.04% )  (59.89%)
+          3403161759      branches                  #  798.973 M/sec                    ( +-  0.10% )  (59.89%)
+            10470474      branch-misses             #    0.31% of all branches          ( +-  0.53% )  (59.96%)
+             5857727      cache-references          #    1.375 M/sec                    ( +-  3.40% )  (60.05%)
+               62217      cache-misses              #    1.062 % of all cache refs      ( +- 18.23% )  (60.14%)
+          9037118239      L1-dcache-loads           #    2.122 G/sec                    ( +-  0.04% )  (40.11%)
+           181487044      L1-dcache-load-misses     #    2.01% of all L1-dcache accesses  ( +-  0.30% )  (40.04%)
+          4478678631      dTLB-loads                #    1.051 G/sec                    ( +-  0.14% )  (39.95%)
+             1418969      dTLB-load-misses          #    0.03% of all dTLB cache accesses  ( +-  2.04% )  (39.86%)
+             4.26690 +- 0.00398 seconds time elapsed  ( +-  0.09% )
   
   --------------------------------------------------------------
    optimized
   --------------------------------------------------------------
-  # started on Sat Sep 19 14:57:21 2026
+  # started on Sat Sep 19 15:54:19 2026
    Performance counter stats for 'taskset -c 0 python3 /root/HW-SW-FULL/variants/bm_raytrace_opt.py --mode raw --loops 32 --no-gc' (5 runs):
-             3176.05 msec task-clock                #    0.998 CPUs utilized            ( +-  0.02% )
-                2339      page-faults               #  736.188 /sec                   
-                2339      minor-faults              #  736.188 /sec                   
+             3252.32 msec task-clock                #    1.014 CPUs utilized            ( +-  0.40% )
+                2339      page-faults               #  730.367 /sec                   
+                2339      minor-faults              #  730.367 /sec                   
                    0      major-faults              #    0.000 /sec                   
-                  36      context-switches          #   11.331 /sec                     ( +-  2.97% )
+                  29      context-switches          #    9.055 /sec                     ( +-  4.88% )
                    0      cpu-migrations            #    0.000 /sec                   
-          7400897739      cycles                    #    2.329 GHz                      ( +-  0.03% )  (49.70%)
-         22481688153      instructions              #    3.04  insn per cycle           ( +-  0.05% )  (59.77%)
-          2624183358      branches                  #  825.948 M/sec                    ( +-  0.07% )  (59.88%)
-            15694595      branch-misses             #    0.60% of all branches          ( +-  0.42% )  (60.01%)
-             2659652      cache-references          #  837.112 K/sec                    ( +-  1.72% )  (60.15%)
-              123673      cache-misses              #    4.596 % of all cache refs      ( +- 15.87% )  (60.25%)
-          7076058356      L1-dcache-loads           #    2.227 G/sec                    ( +-  0.04% )  (40.12%)
-            25875111      L1-dcache-load-misses     #    0.37% of all L1-dcache accesses  ( +-  0.46% )  (39.99%)
-          3519259927      dTLB-loads                #    1.108 G/sec                    ( +-  0.08% )  (39.85%)
-              540260      dTLB-load-misses          #    0.02% of all dTLB cache accesses  ( +-  1.62% )  (39.75%)
-             3.18244 +- 0.00186 seconds time elapsed  ( +-  0.06% )
+          7560423479      cycles                    #    2.361 GHz                      ( +-  0.40% )  (49.84%)
+         22489617071      instructions              #    3.02  insn per cycle           ( +-  0.08% )  (59.92%)
+          2626080023      branches                  #  820.010 M/sec                    ( +-  0.17% )  (60.04%)
+            15465652      branch-misses             #    0.59% of all branches          ( +-  0.51% )  (60.18%)
+             2910786      cache-references          #  908.911 K/sec                    ( +-  3.88% )  (60.19%)
+              106950      cache-misses              #    3.770 % of all cache refs      ( +- 13.92% )  (60.19%)
+          7074527801      L1-dcache-loads           #    2.209 G/sec                    ( +-  0.14% )  (39.96%)
+            25182074      L1-dcache-load-misses     #    0.36% of all L1-dcache accesses  ( +-  1.24% )  (39.82%)
+          3528254747      dTLB-loads                #    1.102 G/sec                    ( +-  0.13% )  (39.81%)
+              551843      dTLB-load-misses          #    0.02% of all dTLB cache accesses  ( +-  1.63% )  (39.81%)
+              3.2073 +- 0.0130 seconds time elapsed  ( +-  0.41% )
   
   --------------------------------------------------------------
    derived ratios (insn, IPC, miss rates)
   --------------------------------------------------------------
-   baseline   instructions=27781886576      cycles=10118812257      IPC=2.7456
-   optimized  instructions=22481688153      cycles=7400897739       IPC=3.0377
+   baseline   instructions=27764577078      cycles=9928442448       IPC=2.7965
+   optimized  instructions=22489617071      cycles=7560423479       IPC=2.9747
 
 4.2 Symbol-level delta
   ==============================================================================
@@ -355,7 +421,43 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   
   symbol                                            base%     opt%     delta
   ------------------------------------------------------------------------------
-  
+  [.] _PyEval_EvalFrameDefault                      31.97    41.65     +9.68
+  [.] binary_op1                                     2.70     6.66     +3.96
+  [.] PyFloat_FromDouble                             1.56     4.24     +2.68
+  [.] frame_dealloc.lto_priv.0                       3.55     1.78     -1.77
+  [.] float_dealloc.lto_priv.0                       1.44     3.75     +2.31
+  [.] float_mul.lto_priv.0                           0.87     3.71     +2.84
+  [.] call_function.lto_priv.0                       2.85     1.41     -1.44
+  [.] _PyEval_MakeFrameVector                        3.32     0.93     -2.39
+  [.] PyTuple_GetItem                                1.91     1.09     -0.82
+  [.] lookdict_unicode_nodummy                       1.59     0.93     -0.66
+  [.] _Py_CheckSlotResult                            0.84     1.57     +0.73
+  [.] float_sub.lto_priv.0                           0.67     1.61     +0.94
+  [.] _Py_NewReference                               0.82     1.41     +0.59
+  [.] _PyType_Lookup                                 2.21     0.00     -2.21
+  [.] float_add.lto_priv.0                           0.57     1.57     +1.00
+  [.] _PyObject_VectorcallTstate.lto_priv.10         1.19     0.89     -0.30
+  [.] get_float_state                                0.77     1.29     +0.52
+  [.] _Py_Dealloc                                    0.79     1.09     +0.30
+  [.] PyNumber_Multiply                              0.62     1.17     +0.55
+  [.] binary_op                                      0.60     1.17     +0.57
+  [.] _PyUnicode_FromId                              1.24     0.32     -0.92
+  [.] _PyObject_GenericSetAttrWithDict               1.54     0.00     -1.54
+  [.] _Py_CheckFunctionResult                        1.17     0.36     -0.81
+  [.] PyObject_RichCompare                           0.35     1.13     +0.78
+  [.] tupledealloc.lto_priv.0                        0.74     0.69     -0.05
+  [.] _PyFunction_Vectorcall                         1.12     0.24     -0.88
+  [.] _PyMem_DebugCheckAddress                       1.02     0.32     -0.70
+  [.] _PyFrame_New_NoTrack                           0.99     0.28     -0.71
+  [.] _PyObject_GetMethod                            1.19     0.00     -1.19
+  [.] _PyObject_Malloc                               0.69     0.40     -0.29
+  [.] _PyEval_Vector                                 0.89     0.16     -0.73
+  [.] read_size_t                                    0.87     0.16     -0.71
+  [.] frame_alloc                                    0.74     0.28     -0.46
+  [.] PyObject_SetAttr                               1.02     0.00     -1.02
+  [.] tupleitem.lto_priv.0                           0.00     1.01     +1.01
+  [.] tuple_alloc                                    0.60     0.36     -0.24
+  [.] float_richcompare.lto_priv.0                   0.47     0.48     +0.01
 
 4.3 Differential flame graph
     /root/HW-SW-FULL/results/latest_comparison_raytrace/diff_flame.svg
@@ -364,11 +466,11 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   different loop counts.
 
 4.4 pyperformance (independent harness)
-  Total duration: 1 min 7.0 sec
-  Start date: 2026-09-19 14:55:46
-  End date: 2026-09-19 14:56:56
-  Raw value minimum: 787 ms
-  Raw value maximum: 836 ms
+  Total duration: 1 min 6.9 sec
+  Start date: 2026-09-19 15:52:32
+  End date: 2026-09-19 15:53:42
+  Raw value minimum: 788 ms
+  Raw value maximum: 802 ms
   
   Number of calibration run: 1
   Number of run with values: 20
@@ -379,16 +481,16 @@ Per pixel: construct and normalize a primary ray; for each object solve the ray-
   Loop iterations per value: 1
   Total number of values: 60
   
-  Minimum:         787 ms
+  Minimum:         788 ms
   Median +- MAD:   793 ms +- 3 ms
-  Mean +- std dev: 795 ms +- 10 ms
-  Maximum:         836 ms
+  Mean +- std dev: 794 ms +- 4 ms
+  Maximum:         802 ms
   
-    0th percentile: 787 ms (-1% of the mean) -- minimum
-    5th percentile: 788 ms (-1% of the mean)
-   25th percentile: 790 ms (-1% of the mean) -- Q1
+    0th percentile: 788 ms (-1% of the mean) -- minimum
+    5th percentile: 789 ms (-1% of the mean)
+   25th percentile: 791 ms (-0% of the mean) -- Q1
    50th percentile: 793 ms (-0% of the mean) -- median
-   75th percentile: 796 ms (+0% of the mean) -- Q3
+   75th percentile: 797 ms (+0% of the mean) -- Q3
 
 4.5 [TODO] Interpretation
   Explain WHY it got faster using 4.1: did instruction count fall (work

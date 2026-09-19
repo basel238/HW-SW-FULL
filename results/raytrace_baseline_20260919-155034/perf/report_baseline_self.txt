@@ -1,0 +1,428 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 4K of event 'cycles'
+# Event count (approx.): 8064000000
+#
+# Overhead  Command      Shared Object         Symbol                                      
+# ........  ...........  ....................  ............................................
+#
+    31.97%  python3-dbg  python3.10d           [.] _PyEval_EvalFrameDefault
+            |
+            ---_PyEval_EvalFrameDefault
+               |          
+               |--1.59%--0xfdfdfdfdfd000053
+               |          
+               |--1.59%--0
+               |          
+               |--0.92%--0xfdfdfd
+               |          
+               |--0.89%--0xfdfdfdfdfdfdfd
+               |          
+               |--0.84%--0x17c026a007c0018
+               |          
+               |--0.77%--0xfdfdfdfdfdfdfd00
+               |          
+               |--0.77%--0x26a017c026a007c
+               |          
+               |--0.77%--0x14016a017c016a
+               |          
+               |--0.72%--0xfd
+               |          
+               |--0.67%--0xfdfdfd0000530017
+               |          
+                --0.67%--0x17c026a007c0017
+
+     3.55%  python3-dbg  python3.10d           [.] frame_dealloc.lto_priv.0
+            |
+            ---frame_dealloc.lto_priv.0
+               |          
+               |--2.95%--0x9a0ea0
+               |          
+                --0.60%--0
+
+     3.32%  python3-dbg  python3.10d           [.] _PyEval_MakeFrameVector
+            |
+            ---_PyEval_MakeFrameVector
+               |          
+                --0.89%--0
+
+     2.85%  python3-dbg  python3.10d           [.] call_function.lto_priv.0
+            |
+            ---call_function.lto_priv.0
+
+     2.70%  python3-dbg  python3.10d           [.] binary_op1
+            |
+            ---binary_op1
+               |          
+                --2.16%--0x9ad3c0
+
+     2.21%  python3-dbg  python3.10d           [.] _PyType_Lookup
+            |
+            ---_PyType_Lookup
+               |          
+                --1.54%--0x9aeb40
+
+     1.91%  python3-dbg  python3.10d           [.] PyTuple_GetItem
+            |
+            ---PyTuple_GetItem
+
+     1.59%  python3-dbg  python3.10d           [.] lookdict_unicode_nodummy
+            |
+            ---lookdict_unicode_nodummy
+               |          
+                --0.89%--0x9aaf60
+
+     1.56%  python3-dbg  python3.10d           [.] PyFloat_FromDouble
+            |
+            ---PyFloat_FromDouble
+
+     1.54%  python3-dbg  python3.10d           [.] _PyObject_GenericSetAttrWithDict
+            |
+            ---_PyObject_GenericSetAttrWithDict
+               |          
+                --1.02%--0x9a3400
+
+     1.44%  python3-dbg  python3.10d           [.] float_dealloc.lto_priv.0
+            |
+            ---float_dealloc.lto_priv.0
+
+     1.24%  python3-dbg  python3.10d           [.] _PyUnicode_FromId
+            |
+            ---_PyUnicode_FromId
+
+     1.19%  python3-dbg  python3.10d           [.] _PyObject_GetMethod
+            |
+            ---_PyObject_GetMethod
+
+     1.19%  python3-dbg  python3.10d           [.] _PyObject_VectorcallTstate.lto_priv.10
+            |
+            ---_PyObject_VectorcallTstate.lto_priv.10
+
+     1.17%  python3-dbg  python3.10d           [.] _Py_CheckFunctionResult
+            |
+            ---_Py_CheckFunctionResult
+
+     1.12%  python3-dbg  python3.10d           [.] _PyFunction_Vectorcall
+            |
+            ---_PyFunction_Vectorcall
+
+     1.02%  python3-dbg  python3.10d           [.] PyObject_SetAttr
+            |
+            ---PyObject_SetAttr
+               |          
+                --0.94%--0x9ad3c0
+
+     1.02%  python3-dbg  python3.10d           [.] _PyMem_DebugCheckAddress
+            |
+            ---_PyMem_DebugCheckAddress
+               |          
+                --0.99%--0x4677615267756265
+
+     0.99%  python3-dbg  python3.10d           [.] _PyFrame_New_NoTrack
+            |
+            ---_PyFrame_New_NoTrack
+
+     0.89%  python3-dbg  python3.10d           [.] _PyEval_Vector
+            |
+            ---_PyEval_Vector
+               |          
+                --0.82%--0
+
+     0.87%  python3-dbg  python3.10d           [.] float_mul.lto_priv.0
+            |
+            ---float_mul.lto_priv.0
+               0x9ad3c0
+
+     0.87%  python3-dbg  python3.10d           [.] read_size_t
+            |
+            ---read_size_t
+               |          
+                --0.52%--0x4677615267756265
+
+     0.84%  python3-dbg  python3.10d           [.] _Py_CheckSlotResult
+            |
+            ---_Py_CheckSlotResult
+               |          
+                --0.62%--0x9ad3c0
+
+     0.82%  python3-dbg  python3.10d           [.] _Py_NewReference
+            |
+            ---_Py_NewReference
+
+     0.82%  python3-dbg  python3.10d           [.] subtype_dealloc.lto_priv.0
+            |
+            ---subtype_dealloc.lto_priv.0
+
+     0.79%  python3-dbg  python3.10d           [.] _Py_Dealloc
+            |
+            ---_Py_Dealloc
+
+     0.77%  python3-dbg  python3.10d           [.] PyType_GenericAlloc
+            |
+            ---PyType_GenericAlloc
+
+     0.77%  python3-dbg  python3.10d           [.] get_float_state
+            |
+            ---get_float_state
+
+     0.74%  python3-dbg  python3.10d           [.] frame_alloc
+            |
+            ---frame_alloc
+               |          
+                --0.62%--0x9a4ca0
+
+     0.74%  python3-dbg  python3.10d           [.] tupledealloc.lto_priv.0
+            |
+            ---tupledealloc.lto_priv.0
+               |          
+                --0.64%--0x9a7b20
+
+     0.72%  python3-dbg  python3.10d           [.] PyDict_Contains
+            |
+            ---PyDict_Contains
+               |          
+                --0.62%--0x9aaf60
+
+     0.69%  python3-dbg  python3.10d           [.] _PyObject_Malloc
+            |
+            ---_PyObject_Malloc
+
+     0.67%  python3-dbg  python3.10d           [.] float_sub.lto_priv.0
+            |
+            ---float_sub.lto_priv.0
+               0x9ad3c0
+
+     0.64%  python3-dbg  python3.10d           [.] _PyTuple_FromArray
+            |
+            ---_PyTuple_FromArray
+
+     0.62%  python3-dbg  libc.so.6             [.] pthread_getspecific@@GLIBC_2.34
+            |
+            ---pthread_getspecific@@GLIBC_2.34
+
+     0.62%  python3-dbg  python3.10d           [.] PyNumber_Multiply
+            |
+            ---PyNumber_Multiply
+
+     0.60%  python3-dbg  python3.10d           [.] _PyObject_VectorcallTstate.lto_priv.6
+            |
+            ---_PyObject_VectorcallTstate.lto_priv.6
+
+     0.60%  python3-dbg  python3.10d           [.] binary_op
+            |
+            ---binary_op
+
+     0.60%  python3-dbg  python3.10d           [.] clear_slots
+            |
+            ---clear_slots
+
+     0.60%  python3-dbg  python3.10d           [.] tuple_alloc
+            |
+            ---tuple_alloc
+
+     0.57%  python3-dbg  python3.10d           [.] PyGILState_Check
+            |
+            ---PyGILState_Check
+
+     0.57%  python3-dbg  python3.10d           [.] _PyObject_MakeTpCall
+            |
+            ---_PyObject_MakeTpCall
+
+     0.57%  python3-dbg  python3.10d           [.] float_add.lto_priv.0
+            |
+            ---float_add.lto_priv.0
+               |          
+                --0.55%--0x9ad3c0
+
+     0.52%  python3-dbg  libc.so.6             [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+
+     0.52%  python3-dbg  python3.10d           [.] PyMember_SetOne
+            |
+            ---PyMember_SetOne
+               0x9ad3c0
+
+     0.50%  python3-dbg  python3.10d           [.] _PyObject_FastCallDictTstate
+     0.50%  python3-dbg  python3.10d           [.] slot_tp_init
+     0.47%  python3-dbg  python3.10d           [.] _PyUnicode_CheckConsistency
+     0.47%  python3-dbg  python3.10d           [.] float_richcompare.lto_priv.0
+     0.45%  python3-dbg  python3.10d           [.] PyCallable_Check
+     0.45%  python3-dbg  python3.10d           [.] is_tstate_valid.lto_priv.0
+     0.40%  python3-dbg  python3.10d           [.] _PyTrash_cond
+     0.35%  python3-dbg  python3.10d           [.] PyObject_RichCompare
+     0.35%  python3-dbg  python3.10d           [.] lookup_maybe_method.lto_priv.0
+     0.32%  python3-dbg  python3.10d           [.] PyUnicode_InternInPlace
+     0.32%  python3-dbg  python3.10d           [.] slot_nb_subtract
+     0.32%  python3-dbg  python3.10d           [.] vectorcall_maybe.lto_priv.0
+     0.30%  python3-dbg  python3.10d           [.] PyType_IsSubtype
+     0.30%  python3-dbg  python3.10d           [.] _PyMem_DebugMalloc
+     0.30%  python3-dbg  python3.10d           [.] _PyMem_DebugRawAlloc
+     0.30%  python3-dbg  python3.10d           [.] arena_map_is_used
+     0.30%  python3-dbg  python3.10d           [.] do_richcompare
+     0.30%  python3-dbg  python3.10d           [.] min_max
+     0.30%  python3-dbg  python3.10d           [.] type_call.lto_priv.0
+     0.27%  python3-dbg  python3.10d           [.] PyObject_GC_UnTrack
+     0.27%  python3-dbg  python3.10d           [.] member_set.lto_priv.0
+     0.25%  python3-dbg  python3.10d           [.] PyNumber_Subtract
+     0.25%  python3-dbg  python3.10d           [.] PyThread_tss_get
+     0.25%  python3-dbg  python3.10d           [.] _PyGILState_GetThisThreadState
+     0.25%  python3-dbg  python3.10d           [.] float_div.lto_priv.0
+     0.25%  python3-dbg  python3.10d           [.] get_type_cache.lto_priv.0
+     0.22%  python3-dbg  python3.10d           [.] PyObject_GC_Del
+     0.22%  python3-dbg  python3.10d           [.] PyThreadState_Get
+     0.22%  python3-dbg  python3.10d           [.] _PyObject_GC_Alloc
+     0.22%  python3-dbg  python3.10d           [.] _PyTrash_begin
+     0.22%  python3-dbg  python3.10d           [.] listiter_next.lto_priv.0
+     0.22%  python3-dbg  python3.10d           [.] write_size_t
+     0.20%  python3-dbg  python3.10d           [.] PyNumber_Add
+     0.20%  python3-dbg  python3.10d           [.] _PyDict_ContainsId
+     0.20%  python3-dbg  python3.10d           [.] _PyDict_LoadGlobal
+     0.20%  python3-dbg  python3.10d           [.] _PyObject_GenericGetAttrWithDict
+     0.20%  python3-dbg  python3.10d           [.] _PyTrash_end
+     0.20%  python3-dbg  python3.10d           [.] cfunction_vectorcall_O.lto_priv.0
+     0.20%  python3-dbg  python3.10d           [.] slot_nb_multiply
+     0.20%  python3-dbg  python3.10d           [.] vgetargskeywords
+     0.17%  python3-dbg  libc.so.6             [.] __strchr_avx2
+     0.17%  python3-dbg  python3.10d           [.] _PyMem_DebugRawFree
+     0.15%  python3-dbg  python3.10d           [.] PyIter_Next
+     0.15%  python3-dbg  python3.10d           [.] _PyObject_Call_Prepend
+     0.15%  python3-dbg  python3.10d           [.] get_tuple_state
+     0.15%  python3-dbg  python3.10d           [.] validate_list
+     0.12%  python3-dbg  python3.10d           [.] PyDict_GetItemWithError
+     0.12%  python3-dbg  python3.10d           [.] _PyMem_DebugFree
+     0.12%  python3-dbg  python3.10d           [.] get_small_int.lto_priv.0
+     0.10%  python3-dbg  libc.so.6             [.] __memmove_avx_unaligned_erms
+     0.10%  python3-dbg  python3.10d           [.] PyBool_FromLong
+     0.10%  python3-dbg  python3.10d           [.] PyNumber_Absolute
+     0.10%  python3-dbg  python3.10d           [.] PyObject_GenericSetAttr
+     0.10%  python3-dbg  python3.10d           [.] PyObject_GetAttr
+     0.10%  python3-dbg  python3.10d           [.] PyObject_Malloc
+     0.10%  python3-dbg  python3.10d           [.] _Py_dg_strtod
+     0.10%  python3-dbg  python3.10d           [.] address_in_range
+     0.10%  python3-dbg  python3.10d           [.] arena_map_get
+     0.10%  python3-dbg  python3.10d           [.] builtin_abs
+     0.10%  python3-dbg  python3.10d           [.] long_bitwise
+     0.10%  python3-dbg  python3.10d           [.] lookdict_unicode
+     0.10%  python3-dbg  python3.10d           [.] math_sqrt
+     0.10%  python3-dbg  python3.10d           [.] object_new.lto_priv.0
+     0.10%  python3-dbg  python3.10d           [.] slot_nb_add
+     0.10%  python3-dbg  python3.10d           [.] tuple_get_empty
+     0.07%  python3-dbg  python3.10d           [.] PyLong_FromDouble
+     0.07%  python3-dbg  python3.10d           [.] PyTuple_New
+     0.07%  python3-dbg  python3.10d           [.] _PyMem_DebugRawMalloc
+     0.07%  python3-dbg  python3.10d           [.] _PyObject_Free
+     0.07%  python3-dbg  python3.10d           [.] _PyType_LookupId
+     0.07%  python3-dbg  python3.10d           [.] cfunction_vectorcall_FASTCALL.lto_priv.0
+     0.07%  python3-dbg  python3.10d           [.] descr_setcheck
+     0.07%  python3-dbg  python3.10d           [.] get_gc_state
+     0.07%  python3-dbg  python3.10d           [.] long_new.lto_priv.0
+     0.07%  python3-dbg  python3.10d           [.] method_vectorcall_O
+     0.07%  python3-dbg  python3.10d           [.] 0x0000000000021100
+     0.05%  python3-dbg  python3.10d           [.] PyArg_ParseTupleAndKeywords
+     0.05%  python3-dbg  python3.10d           [.] PyErr_Occurred
+     0.05%  python3-dbg  python3.10d           [.] PyObject_Free
+     0.05%  python3-dbg  python3.10d           [.] PyObject_GetItem
+     0.05%  python3-dbg  python3.10d           [.] PyThread_tss_is_created
+     0.05%  python3-dbg  python3.10d           [.] PyUnicode_AsUTF8AndSize
+     0.05%  python3-dbg  python3.10d           [.] _PyObject_GC_Malloc
+     0.05%  python3-dbg  python3.10d           [.] _PyObject_IsFreed
+     0.05%  python3-dbg  python3.10d           [.] _PyPegen_expect_token
+     0.05%  python3-dbg  python3.10d           [.] _PyPegen_is_memoized
+     0.05%  python3-dbg  python3.10d           [.] _Py_get_387controlword
+     0.05%  python3-dbg  python3.10d           [.] _Py_string_to_number_with_underscores
+     0.05%  python3-dbg  python3.10d           [.] app1
+     0.05%  python3-dbg  python3.10d           [.] case_insensitive_match
+     0.05%  python3-dbg  python3.10d           [.] dict_subscript.lto_priv.0
+     0.05%  python3-dbg  python3.10d           [.] find_name_in_mro.lto_priv.0
+     0.05%  python3-dbg  python3.10d           [.] lookup_method.lto_priv.0
+     0.05%  python3-dbg  python3.10d           [.] math_1_to_whatever
+     0.05%  python3-dbg  python3.10d           [.] object_dealloc.lto_priv.0
+     0.05%  python3-dbg  python3.10d           [.] 0x0000000000022670
+     0.05%  python3-dbg  [unknown]             [k] 0xffffffffac5869b7
+     0.05%  python3-dbg  [unknown]             [k] 0xffffffffaca01299
+     0.02%  python3-dbg  ld-linux-x86-64.so.2  [.] do_lookup_x
+     0.02%  python3-dbg  libc.so.6             [.] __mbsrtowcs_l
+     0.02%  python3-dbg  libc.so.6             [.] _int_free
+     0.02%  python3-dbg  libcrypto.so.3        [.] 0x00000000000dc202
+     0.02%  python3-dbg  libm.so.6             [.] __sqrt
+     0.02%  python3-dbg  libm.so.6             [.] __sqrt_finite@GLIBC_2.15
+     0.02%  python3-dbg  python3.10d           [.] Bfree
+     0.02%  python3-dbg  python3.10d           [.] PyDescr_IsData
+     0.02%  python3-dbg  python3.10d           [.] PyList_New
+     0.02%  python3-dbg  python3.10d           [.] PyMember_GetOne
+     0.02%  python3-dbg  python3.10d           [.] PyNumber_And
+     0.02%  python3-dbg  python3.10d           [.] PyNumber_Long
+     0.02%  python3-dbg  python3.10d           [.] PyNumber_Negative
+     0.02%  python3-dbg  python3.10d           [.] PyOS_string_to_double
+     0.02%  python3-dbg  python3.10d           [.] PyObject_GetIter
+     0.02%  python3-dbg  python3.10d           [.] PyObject_RichCompareBool
+     0.02%  python3-dbg  python3.10d           [.] PyTuple_Size
+     0.02%  python3-dbg  python3.10d           [.] PyUnicode_FromFormatV
+     0.02%  python3-dbg  python3.10d           [.] PyUnicode_New
+     0.02%  python3-dbg  python3.10d           [.] PyUnicode_RichCompare
+     0.02%  python3-dbg  python3.10d           [.] _PyCode_ConstantKey
+     0.02%  python3-dbg  python3.10d           [.] _PyDict_CheckConsistency
+     0.02%  python3-dbg  python3.10d           [.] _PyMem_DebugRawRealloc
+     0.02%  python3-dbg  python3.10d           [.] _PyOS_ascii_strtod
+     0.02%  python3-dbg  python3.10d           [.] _PyObject_GC_New
+     0.02%  python3-dbg  python3.10d           [.] _PyPegen_Parser_Free
+     0.02%  python3-dbg  python3.10d           [.] _PyUnicode_EqualToASCIIString
+     0.02%  python3-dbg  python3.10d           [.] _PyUnicode_FromUCS1.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] _PyUnicode_JoinArray
+     0.02%  python3-dbg  python3.10d           [.] _Py_parse_inf_or_nan
+     0.02%  python3-dbg  python3.10d           [.] binarysort
+     0.02%  python3-dbg  python3.10d           [.] builtin_min
+     0.02%  python3-dbg  python3.10d           [.] cfunction_call.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] cleanreturn
+     0.02%  python3-dbg  python3.10d           [.] convert_to_double
+     0.02%  python3-dbg  python3.10d           [.] descr_check.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] dict_dealloc.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] dict_traverse.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] float_from_string_inner
+     0.02%  python3-dbg  python3.10d           [.] handle_weakrefs
+     0.02%  python3-dbg  python3.10d           [.] inherit_slots
+     0.02%  python3-dbg  python3.10d           [.] list_dealloc.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] list_resize
+     0.02%  python3-dbg  python3.10d           [.] long_add.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] long_new_impl.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] math_floor
+     0.02%  python3-dbg  python3.10d           [.] new_dict_with_shared_keys.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] normalize_jumps
+     0.02%  python3-dbg  python3.10d           [.] pymalloc_realloc
+     0.02%  python3-dbg  python3.10d           [.] r_long
+     0.02%  python3-dbg  python3.10d           [.] r_object
+     0.02%  python3-dbg  python3.10d           [.] rangeiter_next.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] siphash24
+     0.02%  python3-dbg  python3.10d           [.] super_getattro.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] tuple_iter.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] tupleiter_next.lto_priv.0
+     0.02%  python3-dbg  python3.10d           [.] untrack_tuples
+     0.02%  python3-dbg  python3.10d           [.] 0x0000000000022284
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac0b3e80
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac15f4fc
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac165c42
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac165c96
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac16ba30
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac16bff9
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac16fdd0
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac17e5ba
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac28fb8c
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac2d2972
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac30f5dd
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac3ad2d4
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac57ad9d
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac586d47
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac9520b0
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffac9520c8
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffaca00216
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffaca00225
+     0.02%  python3-dbg  [unknown]             [k] 0xffffffffaca00f7a
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

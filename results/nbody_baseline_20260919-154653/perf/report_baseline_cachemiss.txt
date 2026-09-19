@@ -1,0 +1,40 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 3  of event 'cache-misses'
+# Event count (approx.): 30000
+#
+# Overhead  Command      Shared Object     Symbol                        
+# ........  ...........  ................  ..............................
+#
+    33.33%  python3-dbg  python3.10d       [.] compiler_nameop.lto_priv.0
+            |
+            ---compiler_nameop.lto_priv.0
+               0x7ffff77845f0
+               0x9a7640
+
+    33.33%  python3-dbg  python3.10d       [.] unicode_result.lto_priv.0
+            |
+            ---unicode_result.lto_priv.0
+               0x9a7640
+
+    33.33%  python3-dbg  [unknown]         [k] 0xffffffffac302511
+            |
+            ---0xffffffffac302511
+               0xffffffffac3028e8
+               0xffffffffac3036bd
+               0xffffffffac2ebd5a
+               0xffffffffac2ec210
+               0xffffffffac0035dd
+               0xffffffffac95004e
+               0xffffffffaca00124
+               __GI___libc_open
+               0x336e6f687479702f
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

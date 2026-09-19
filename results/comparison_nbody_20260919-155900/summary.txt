@@ -1,0 +1,26 @@
+==========================================================================
+                      PERFORMANCE COMPARISON — nbody                      
+==========================================================================
+
+Source: clean-timing phase only (no profiler attached).
+Statistic: MEDIAN of independent processes — robust to host hiccups.
+
+metric                baseline       optimized           delta
+--------------------------------------------------------------------------
+samples                     11              11                
+min                 4.235267 s      3.860327 s     -0.374940 s
+median              4.245076 s      3.868066 s     -0.377010 s
+mean                4.246400 s      3.881963 s     -0.364438 s
+max                 4.263324 s      3.942753 s     -0.320571 s
+stdev               0.008160 s      0.025344 s     +0.017184 s
+rel stdev                0.19%           0.65%                
+
+==========================================================================
+  SPEEDUP     : 1.0975x
+  IMPROVEMENT : 8.88 %   (time reduction)
+  PROJECT BAR : 7.00 %
+  VERDICT     : PASS
+==========================================================================
+
+Signal check: improvement (8.88%) exceeds 2x noise (0.65%). OK.
+Min-vs-min speedup (least-noise estimate): 1.0971x (8.85% improvement)

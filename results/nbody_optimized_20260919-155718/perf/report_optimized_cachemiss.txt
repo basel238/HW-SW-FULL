@@ -1,0 +1,68 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 9  of event 'cache-misses'
+# Event count (approx.): 90000
+#
+# Overhead  Command      Shared Object     Symbol                          
+# ........  ...........  ................  ................................
+#
+    22.22%  python3-dbg  python3.10d       [.] _PyObject_IsFreed
+            |
+            ---_PyObject_IsFreed
+               |          
+               |--11.11%--0x9acec0
+               |          
+                --11.11%--0x9aaf60
+
+    11.11%  python3-dbg  libc.so.6         [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+               0xdddddddddddddddd
+
+    11.11%  python3-dbg  libc.so.6         [.] __wcscmp_avx2
+            |
+            ---__wcscmp_avx2
+               0xa30035
+
+    11.11%  python3-dbg  python3.10d       [.] PyDict_New
+            |
+            ---PyDict_New
+               0x7ffff77844a0
+               0x9a7640
+
+    11.11%  python3-dbg  python3.10d       [.] _PyMem_DebugCheckAddress
+            |
+            ---_PyMem_DebugCheckAddress
+               0x4677615267756265
+
+    11.11%  python3-dbg  python3.10d       [.] _PyMem_DebugRawFree
+            |
+            ---_PyMem_DebugRawFree
+               0xdddddddddddddddd
+
+    11.11%  python3-dbg  python3.10d       [.] pattern_new_match
+            |
+            ---pattern_new_match
+               0xaf7ab0
+
+    11.11%  python3-dbg  [unknown]         [k] 0xffffffffac2561c9
+            |
+            ---0xffffffffac2561c9
+               0xffffffffac28ed07
+               0xffffffffac28eff0
+               0xffffffffac28f6b5
+               0xffffffffac28fbe4
+               0xffffffffac28fd26
+               0xffffffffac0c435d
+               0xffffffffac95258b
+               0xffffffffaca00c04
+               fileio_new.lto_priv.0
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

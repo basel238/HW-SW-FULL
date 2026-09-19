@@ -1,0 +1,270 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 4K of event 'cycles'
+# Event count (approx.): 8064000000
+#
+# Children      Self  Shared Object       
+# ........  ........  ....................
+#
+    98.21%    97.87%  python3.10d         
+            |          
+            |--10.47%--0x9ad3c0
+            |          |          
+            |          |--2.16%--binary_op1
+            |          |          
+            |          |--0.94%--PyObject_SetAttr
+            |          |          
+            |          |--0.87%--float_mul.lto_priv.0
+            |          |          
+            |          |--0.67%--float_sub.lto_priv.0
+            |          |          
+            |          |--0.62%--_Py_CheckSlotResult
+            |          |          
+            |          |--0.55%--float_add.lto_priv.0
+            |          |          
+            |           --0.52%--PyMember_SetOne
+            |          
+            |--5.48%--0
+            |          |          
+            |          |--1.59%--_PyEval_EvalFrameDefault
+            |          |          
+            |          |--0.89%--_PyEval_MakeFrameVector
+            |          |          
+            |          |--0.82%--_PyEval_Vector
+            |          |          
+            |           --0.60%--frame_dealloc.lto_priv.0
+            |          
+            |--4.29%--0x9a0ea0
+            |          |          
+            |           --2.95%--frame_dealloc.lto_priv.0
+            |          
+            |--4.12%--0x9aeb40
+            |          |          
+            |           --1.54%--_PyType_Lookup
+            |          
+            |--2.43%--_PyEval_MakeFrameVector
+            |          
+            |--2.06%--0xbd6860
+            |          
+            |--1.84%--0x9acec0
+            |          
+            |--1.71%--0xfdfdfdfdfd000053
+            |          |          
+            |           --1.59%--_PyEval_EvalFrameDefault
+            |          
+            |--1.66%--0xfdfdfd
+            |          |          
+            |           --0.92%--_PyEval_EvalFrameDefault
+            |          
+            |--1.64%--0x9aaf60
+            |          |          
+            |          |--0.89%--lookdict_unicode_nodummy
+            |          |          
+            |           --0.62%--PyDict_Contains
+            |          
+            |--1.54%--_PyFrame_New_NoTrack
+            |          
+            |--1.51%--0x4677615267756265
+            |          |          
+            |          |--0.99%--_PyMem_DebugCheckAddress
+            |          |          
+            |           --0.52%--read_size_t
+            |          
+            |--1.41%--0x9a7b20
+            |          |          
+            |           --0.64%--tupledealloc.lto_priv.0
+            |          
+            |--1.22%--PyFloat_FromDouble
+            |          
+            |--1.17%--0x9a3400
+            |          |          
+            |           --1.02%--_PyObject_GenericSetAttrWithDict
+            |          
+            |--1.12%--_PyFunction_Vectorcall
+            |          
+            |--1.02%--0x14016a017c016a
+            |          |          
+            |           --0.77%--_PyEval_EvalFrameDefault
+            |          
+            |--0.99%--0x9a7640
+            |          
+            |--0.97%--0x9a4ca0
+            |          |          
+            |           --0.62%--frame_alloc
+            |          
+            |--0.92%--0x26a017c026a007c
+            |          |          
+            |           --0.77%--_PyEval_EvalFrameDefault
+            |          
+            |--0.92%--0xfdfdfdfdfdfdfd
+            |          |          
+            |           --0.89%--_PyEval_EvalFrameDefault
+            |          
+            |--0.87%--0xfdfdfdfdfdfdfd00
+            |          |          
+            |           --0.77%--_PyEval_EvalFrameDefault
+            |          
+            |--0.84%--0x17c026a007c0018
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.79%--_PyObject_VectorcallTstate.lto_priv.10
+            |          
+            |--0.79%--_Py_CheckFunctionResult
+            |          
+            |--0.77%--0xfd
+            |          |          
+            |           --0.72%--_PyEval_EvalFrameDefault
+            |          
+            |--0.69%--lookdict_unicode_nodummy
+            |          
+            |--0.67%--_PyUnicode_FromId
+            |          
+            |--0.67%--0xfdfdfd0000530017
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.67%--0x17c026a007c0017
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.62%--0xfdfdfdfdfdfdfd6f
+            |          
+            |--0.62%--0xfdfdfdfdfd
+            |          
+            |--0.62%--0x99f740
+            |          
+            |--0.57%--_PyObject_VectorcallTstate.lto_priv.6
+            |          
+            |--0.57%--_PyObject_MakeTpCall
+            |          
+            |--0.57%--0x170014026a017c
+            |          
+            |--0.55%--0x7c037c015f007c
+            |          
+             --0.52%--PyType_GenericAlloc
+
+    79.49%     0.57%  [unknown]           
+            |          
+            |--10.54%--0x9ad3c0
+            |          |          
+            |          |--2.16%--binary_op1
+            |          |          
+            |          |--0.94%--PyObject_SetAttr
+            |          |          
+            |          |--0.87%--float_mul.lto_priv.0
+            |          |          
+            |          |--0.67%--float_sub.lto_priv.0
+            |          |          
+            |          |--0.64%--_Py_CheckSlotResult
+            |          |          
+            |          |--0.55%--float_add.lto_priv.0
+            |          |          
+            |           --0.52%--PyMember_SetOne
+            |          
+            |--5.98%--0
+            |          |          
+            |          |--1.59%--_PyEval_EvalFrameDefault
+            |          |          
+            |          |--0.89%--_PyEval_MakeFrameVector
+            |          |          
+            |          |--0.82%--_PyEval_Vector
+            |          |          
+            |           --0.60%--frame_dealloc.lto_priv.0
+            |          
+            |--4.29%--0x9a0ea0
+            |          |          
+            |           --2.95%--frame_dealloc.lto_priv.0
+            |          
+            |--4.12%--0x9aeb40
+            |          |          
+            |           --1.54%--_PyType_Lookup
+            |          
+            |--2.16%--0xbd6860
+            |          
+            |--1.84%--0x9acec0
+            |          
+            |--1.71%--0xfdfdfdfdfd000053
+            |          |          
+            |           --1.59%--_PyEval_EvalFrameDefault
+            |          
+            |--1.66%--0xfdfdfd
+            |          |          
+            |           --0.92%--_PyEval_EvalFrameDefault
+            |          
+            |--1.64%--0x9aaf60
+            |          |          
+            |          |--0.89%--lookdict_unicode_nodummy
+            |          |          
+            |           --0.62%--PyDict_Contains
+            |          
+            |--1.51%--0x4677615267756265
+            |          |          
+            |          |--0.99%--_PyMem_DebugCheckAddress
+            |          |          
+            |           --0.52%--read_size_t
+            |          
+            |--1.44%--0x9a7b20
+            |          |          
+            |           --0.67%--tupledealloc.lto_priv.0
+            |          
+            |--1.17%--0x9a3400
+            |          |          
+            |           --1.02%--_PyObject_GenericSetAttrWithDict
+            |          
+            |--1.02%--0x14016a017c016a
+            |          |          
+            |           --0.77%--_PyEval_EvalFrameDefault
+            |          
+            |--0.99%--0x9a7640
+            |          
+            |--0.97%--0x9a4ca0
+            |          |          
+            |           --0.62%--frame_alloc
+            |          
+            |--0.92%--0x26a017c026a007c
+            |          |          
+            |           --0.77%--_PyEval_EvalFrameDefault
+            |          
+            |--0.92%--0xfdfdfdfdfdfdfd
+            |          |          
+            |           --0.89%--_PyEval_EvalFrameDefault
+            |          
+            |--0.89%--0xfdfdfdfdfdfdfd00
+            |          |          
+            |           --0.79%--_PyEval_EvalFrameDefault
+            |          
+            |--0.84%--0x17c026a007c0018
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.82%--0xfdfdfdfdfdfdfd6f
+            |          
+            |--0.77%--0xfd
+            |          |          
+            |           --0.72%--_PyEval_EvalFrameDefault
+            |          
+            |--0.72%--0xdddddddddddddddd
+            |          
+            |--0.67%--0xfdfdfd0000530017
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.67%--0x17c026a007c0017
+            |          _PyEval_EvalFrameDefault
+            |          
+            |--0.62%--0xfdfdfdfdfd
+            |          
+            |--0.62%--0x99f740
+            |          
+            |--0.57%--0x170014026a017c
+            |          
+             --0.55%--0x7c037c015f007c
+
+     1.64%     1.46%  libc.so.6           
+     0.07%     0.02%  ld-linux-x86-64.so.2
+     0.05%     0.05%  libm.so.6           
+     0.02%     0.02%  libcrypto.so.3      
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

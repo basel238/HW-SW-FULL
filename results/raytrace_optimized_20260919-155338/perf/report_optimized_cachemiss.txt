@@ -1,0 +1,102 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 11  of event 'cache-misses'
+# Event count (approx.): 110000
+#
+# Overhead  Command      Shared Object     Symbol                                 
+# ........  ...........  ................  .......................................
+#
+     9.09%  python3-dbg  libcrypto.so.3    [.] OPENSSL_sk_delete
+            |
+            ---OPENSSL_sk_delete
+               0xbb6420
+
+     9.09%  python3-dbg  python3.10d       [.] PyIter_Next
+            |
+            ---PyIter_Next
+               0x9aeb40
+
+     9.09%  python3-dbg  python3.10d       [.] _bufferedreader_read_all.lto_priv.0
+            |
+            ---_bufferedreader_read_all.lto_priv.0
+               0x9c2360
+
+     9.09%  python3-dbg  python3.10d       [.] code_dealloc.lto_priv.0
+            |
+            ---code_dealloc.lto_priv.0
+               0x7ffff781ee00
+
+     9.09%  python3-dbg  python3.10d       [.] pycore_init_builtins
+            |
+            ---pycore_init_builtins
+               0
+
+     9.09%  python3-dbg  python3.10d       [.] read_size_t
+            |
+            ---read_size_t
+               0x4677615267756265
+
+     9.09%  python3-dbg  python3.10d       [.] starunpack_helper
+            |
+            ---starunpack_helper
+
+     9.09%  python3-dbg  python3.10d       [.] validate_list
+            |
+            ---validate_list
+
+     9.09%  python3-dbg  python3.10d       [.] visit_decref
+            |
+            ---visit_decref
+               0x9aaf60
+
+     9.09%  python3-dbg  [unknown]         [k] 0xffffffffac584147
+            |
+            ---0xffffffffac584147
+               0xffffffffac256bdf
+               0xffffffffac33c1eb
+               0xffffffffac33c3d2
+               0xffffffffac3bbc50
+               0xffffffffac3beddc
+               0xffffffffac3c040b
+               0xffffffffac3c069b
+               0xffffffffac3c4a77
+               0xffffffffac32adfb
+               0xffffffffac310b37
+               0xffffffffac3113a2
+               0xffffffffac3113e2
+               0xffffffffac3ad562
+               0xffffffffac3adc1e
+               0xffffffffac2ecf3f
+               0xffffffffac2edc73
+               0xffffffffac2ef1c2
+               0xffffffffac2ef254
+               0xffffffffac002007
+               0xffffffffac95004e
+               0xffffffffaca00124
+               __GI___libc_write
+               0x7ffff7916c6c
+
+     9.09%  python3-dbg  [unknown]         [k] 0xffffffffac5869b7
+            |
+            ---0xffffffffac5869b7
+               0xffffffffac2ad1ed
+               0xffffffffac2ade8a
+               0xffffffffac2c6228
+               0xffffffffac28ab90
+               0xffffffffac28dd3d
+               0xffffffffac28f6e7
+               0xffffffffac28fbe4
+               0xffffffffac28fd26
+               0xffffffffac0c435d
+               0xffffffffac95258b
+               0xffffffffaca00c04
+               PyModuleDef_Init
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

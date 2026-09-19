@@ -1,0 +1,85 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 10  of event 'cache-misses'
+# Event count (approx.): 100000
+#
+# Overhead  Command      Shared Object         Symbol                          
+# ........  ...........  ....................  ................................
+#
+    10.00%  python3-dbg  ld-linux-x86-64.so.2  [.] strcmp
+            |
+            ---strcmp
+
+    10.00%  python3-dbg  libc.so.6             [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+               0xdddddddddddddddd
+
+    10.00%  python3-dbg  python3.10d           [.] PyList_Append
+            |
+            ---PyList_Append
+               0xa3fbb0
+
+    10.00%  python3-dbg  python3.10d           [.] check_is_arg
+            |
+            ---check_is_arg
+               0xab3128
+
+    10.00%  python3-dbg  python3.10d           [.] iobase_check_closed
+            |
+            ---iobase_check_closed
+               0x9c2360
+
+    10.00%  python3-dbg  python3.10d           [.] set_traverse.lto_priv.0
+            |
+            ---set_traverse.lto_priv.0
+               0x9a8a60
+
+    10.00%  python3-dbg  python3.10d           [.] tupledealloc.lto_priv.0
+            |
+            ---tupledealloc.lto_priv.0
+               0x9a7b20
+
+    10.00%  python3-dbg  python3.10d           [.] validate_list
+            |
+            ---validate_list
+
+    10.00%  python3-dbg  [unknown]             [k] 0xffffffffac5869b7
+            |
+            ---0xffffffffac5869b7
+               0xffffffffac2ad1ed
+               0xffffffffac2ade8a
+               0xffffffffac2c6228
+               0xffffffffac28b735
+               0xffffffffac28f6c7
+               0xffffffffac28fbe4
+               0xffffffffac28fd26
+               0xffffffffac0c435d
+               0xffffffffac95258b
+               0xffffffffaca00c04
+               __memset_avx2_unaligned_erms
+               0x7301
+
+    10.00%  python3-dbg  [unknown]             [k] 0xffffffffac586f27
+            |
+            ---0xffffffffac586f27
+               0xffffffffac2583ea
+               0xffffffffac25866d
+               0xffffffffac3ad3e6
+               0xffffffffac2ecda8
+               0xffffffffac2eda01
+               0xffffffffac2ef0a2
+               0xffffffffac2ef134
+               0xffffffffac003942
+               0xffffffffac95004e
+               0xffffffffaca00124
+               read
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

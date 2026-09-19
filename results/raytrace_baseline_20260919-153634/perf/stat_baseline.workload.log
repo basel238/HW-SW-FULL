@@ -1,0 +1,81 @@
+Traceback (most recent call last):
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 288, in <module>
+    sys.exit(main())
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 273, in main
+    elapsed, pixels = benchmark(loops, a.width, a.height)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 225, in benchmark
+    pixels = render(width, height, scene)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 208, in render
+    pixels.append(int(min(1.0, max(0.0, c.x)) * 255.0))
+KeyboardInterrupt
+taskset: Interrupt
+Traceback (most recent call last):
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 288, in <module>
+    sys.exit(main())
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 273, in main
+    elapsed, pixels = benchmark(loops, a.width, a.height)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 225, in benchmark
+    pixels = render(width, height, scene)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 206, in render
+    c = trace(scene, eye, d)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 180, in trace
+    shadow_obj, _ = nearest_hit(scene, point + normal * 1e-4, to_light)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 154, in nearest_hit
+    t = s.intersect(origin, direction)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 98, in intersect
+    c = oc.dot(oc) - self.radius * self.radius
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 65, in dot
+    def dot(self, o):
+KeyboardInterrupt
+taskset: Interrupt
+Traceback (most recent call last):
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 288, in <module>
+    sys.exit(main())
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 273, in main
+    elapsed, pixels = benchmark(loops, a.width, a.height)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 225, in benchmark
+    pixels = render(width, height, scene)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 206, in render
+    c = trace(scene, eye, d)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 189, in trace
+    rcol = trace(scene, point + normal * 1e-4, rdir, depth + 1)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 165, in trace
+    obj, t = nearest_hit(scene, origin, direction)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 154, in nearest_hit
+    t = s.intersect(origin, direction)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 98, in intersect
+    c = oc.dot(oc) - self.radius * self.radius
+KeyboardInterrupt
+taskset: Interrupt
+Traceback (most recent call last):
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 288, in <module>
+    sys.exit(main())
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 273, in main
+    elapsed, pixels = benchmark(loops, a.width, a.height)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 225, in benchmark
+    pixels = render(width, height, scene)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 205, in render
+    d = Vector(x, y, -1.0).normalize()
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 77, in normalize
+    return Vector(self.x / m, self.y / m, self.z / m)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 53, in __init__
+    def __init__(self, x, y, z):
+KeyboardInterrupt
+taskset: Interrupt
+Traceback (most recent call last):
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 288, in <module>
+    sys.exit(main())
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 273, in main
+    elapsed, pixels = benchmark(loops, a.width, a.height)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 225, in benchmark
+    pixels = render(width, height, scene)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 206, in render
+    c = trace(scene, eye, d)
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 174, in trace
+    to_light = (scene["light"] - point).normalize()
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 74, in normalize
+    m = self.magnitude()
+  File "/root/HW-SW-FULL/bench/bm_raytrace.py", line 71, in magnitude
+    return math.sqrt(self.dot(self))
+KeyboardInterrupt
+taskset: Interrupt
